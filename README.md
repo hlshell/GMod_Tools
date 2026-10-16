@@ -15,10 +15,10 @@
 
 | 平台 | 安装包 | 说明 |
 | ---- | ------ | ---- |
-| Windows | `GMod_GUI-win64.zip` | 解压后运行 `GMod_GUI.exe` |
+| Windows | `[GMod_GUI-win64.zip](https://github.com/hlshell/GMod_Tools/releases/download/GMod_GUI/GMod_GUI.zip)` | 解压后运行 `GMod_GUI.exe` |
 
 **安装步骤：**
-1. 下载 `GMod_GUI-win64.zip`
+1. 下载 `[GMod_GUI-win64.zip](https://github.com/hlshell/GMod_Tools/releases/download/GMod_GUI/GMod_GUI.zip)`
 2. 解压到任意目录（建议放在非系统盘，如 `K:\GMod_GUI`）
 3. 双击运行 `GMod_GUI.exe`，无需额外安装
 4. 首次运行在设置中指定你的 GMod 项目目录即可
