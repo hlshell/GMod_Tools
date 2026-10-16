@@ -5,20 +5,20 @@
 
 ## 📖 简介
 
-**GMod_GUI** 是面向 Garry's Mod 开发者的桌面工具箱，采用 Fluent Design 深色卡片 UI，用于简化 GMod 模组开发流程：GMA 打包/解包、创意工坊上传、多语言配置、资源管理等。
+**GMod_GUI** 是面向 Garry's Mod 开发者的桌面工具箱，采用 Fluent Design 深色卡片 UI，用于简化 GMod 模组开发流程：GMA 打包/解包、创意工坊上传、多语言配置�[...] 
 
 > 本仓库为**发行版下载/发布页**，仅提供编译好的可运行包，不包含源代码。
 
 ## 📦 下载安装
 
-从本仓库的 **Releases / 发行版** 页面下载最新 `GMod_GUI.zip`：
+从本仓库的 **Releases / 发行版** 页面下载最新 GMod_GUI-win64.zip：
 
 | 平台 | 安装包 | 说明 |
 | ---- | ------ | ---- |
-| Windows | `[GMod_GUI-win64.zip](https://github.com/hlshell/GMod_Tools/releases/download/GMod_GUI/GMod_GUI.zip)` | 解压后运行 `GMod_GUI.exe` |
+| Windows | [GMod_GUI-win64.zip](https://github.com/hlshell/GMod_Tools/releases/latest/download/GMod_GUI-win64.zip) | 解压后运行 `GMod_GUI.exe` |
 
 **安装步骤：**
-1. 下载 `[GMod_GUI-win64.zip](https://github.com/hlshell/GMod_Tools/releases/download/GMod_GUI/GMod_GUI.zip)`
+1. 下载 [GMod_GUI-win64.zip](https://github.com/hlshell/GMod_Tools/releases/latest/download/GMod_GUI-win64.zip)
 2. 解压到任意目录（建议放在非系统盘，如 `K:\GMod_GUI`）
 3. 双击运行 `GMod_GUI.exe`，无需额外安装
 4. 首次运行在设置中指定你的 GMod 项目目录即可
@@ -64,6 +64,3 @@
 ---
 
 © 2026 yourname. All rights reserved.
-
-
-
