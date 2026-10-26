@@ -1,0 +1,371 @@
+// ============================================================
+// GMod 工具箱 — Slint 主窗口
+// 组装 标题栏 + 内容区(打包上传 / 其他工具 / 关于) + 底部日志进度
+// 全部文案经 I18n 全局查询，命令经 Backend 全局分发。
+// ============================================================
+import { I18n, Backend, Theme } from "components/globals.slint";
+export { I18n, Backend, Theme } from "components/globals.slint";
+import { TitleBar } from "components/titlebar.slint";
+import { LogDrawer } from "components/logdrawer.slint";
+import { Splash } from "components/splash.slint";
+import { Toast } from "components/toast.slint";
+import { PackPage } from "pages/pack_page.slint";
+import { ToolsPage } from "pages/tools_page.slint";
+import { AboutPage } from "pages/about_page.slint";
+
+export component MainWindow inherits Window {
+    title: "GMod 工具箱";
+    // 应用图标：任务栏 / 标题栏
+    icon: @image-url("assets/logo.png");
+    // 无原生标题栏（对应旧 Tauri decorations:false），使用自定义 TitleBar，靠其拖拽与关闭按钮
+    no-frame: true;
+    // 固定窗口尺寸（不可自由拖拽拉伸），按用户参考图 924×638
+    preferred-width: 924px;
+    preferred-height: 638px;
+    width: 924px;
+    height: 638px;
+
+    // ---------- 全局状态 ----------
+    in-out property <int> page-index: 0;
+    in-out property <int> tools-sub: 0;
+    in-out property <bool> dark: false;
+    in-out property <string> log-text: "";
+    in-out property <string> status: "就绪";
+    in-out property <float> progress: 0.0;
+    in-out property <bool> progress-visible: false;
+    in-out property <bool> busy: false;
+    // 日志抽屉展开状态
+    in-out property <bool> log-open: false;
+    // 轻提示（toast）
+    in-out property <string> toast-text: "";
+    in-out property <string> toast-kind: "info";
+    in-out property <bool> toast-show: false;
+
+    // ---------- 与 Rust 交互的全局回调 ----------
+    callback drag-start();
+    callback view-drag-move(float, float);
+
+    // ---------- 打包上传页字段 ----------
+    in-out property <string> source-folder;
+    in-out property <string> addon-name;
+    in-out property <int> addon-type-index: 0;
+    in-out property <string> tags;
+    in-out property <string> ignore;
+    in-out property <string> description;
+    in-out property <string> addon-version: "1";
+    in-out property <string> steam-id;
+    in-out property <string> out-gma;
+    in-out property <string> gma-file;
+    in-out property <string> icon-path;
+    in-out property <image> icon-preview-image;
+    in-out property <bool> icon-has: false;
+    in-out property <int> upload-mode: 0;
+    in-out property <string> workshop-id;
+    in-out property <string> changes;
+    in-out property <string> extract-gma;
+    in-out property <string> extract-dir;
+
+    // ---------- 工具页字段 ----------
+    in-out property <string> vpk-src;
+    in-out property <string> vpk-out;
+    in-out property <string> vpk-file;
+    in-out property <string> vpk-dir;
+    in-out property <string> vtf-file;
+    in-out property <string> vtf-out;
+    in-out property <string> png-file;
+    in-out property <string> vtf-enc-out;
+    in-out property <int> vtf-enc-format: 0;
+    in-out property <bool> vtf-preview-visible: false;
+    in-out property <image> vtf-preview-image;
+    in-out property <bool> png-preview-visible: false;
+    in-out property <image> png-preview-image;
+    in-out property <bool> vpk-tree-visible: false;
+    in-out property <string> vpk-tree;
+    in-out property <bool> mdl-tree-visible: false;
+    in-out property <string> mdl-tree;
+    in-out property <string> mdl-file;
+    in-out property <string> mdl-out-dir;
+    in-out property <string> qc-file;
+    in-out property <string> mdl-pack-out;
+    in-out property <string> studiomdl;
+    in-out property <string> view-mdl-file;
+    in-out property <string> view-mdl-name;
+    in-out property <image> view-preview-image;
+    in-out property <string> view-meta;
+    in-out property <string> view-stats;
+    in-out property <bool> view-wire: false;
+    in-out property <bool> view-shade: true;
+    in-out property <bool> view-bone: false;
+    in-out property <bool> view-texture: true;
+    in-out property <bool> view-hitbox: false;
+    in-out property <bool> view-attach: false;
+    in-out property <bool> view-grid: true;
+    in-out property <bool> view-axes: true;
+    in-out property <bool> view-ortho: false;
+    in-out property <bool> view-uv: false;
+    in-out property <bool> view-flat: false;
+    in-out property <bool> view-fullbright: false;
+    in-out property <bool> view-normal: false;
+    in-out property <bool> view-bounds: false;
+    in-out property <int> view-skin-family: 0;
+    in-out property <int> view-skin-count: 1;
+    in-out property <[string]> view-skin-names;
+    in-out property <int> view-fov: 55;
+    in-out property <bool> view-model-open: false;
+    in-out property <[string]> view-model-names;
+    // 序列动画
+    in-out property <int> anim-seq: -1;         // 选中序列序号
+    in-out property <int> anim-frames: 0;       // 当前序列总帧数
+    in-out property <float> anim-frame: 0;      // 当前播放帧（滑块两路绑定用 float）
+    in-out property <bool> anim-playing: false; // 播放中
+    in-out property <bool> seq-open: false;     // 序列下拉浮层开关
+    in-out property <[string]> seq-names;       // 序列名称列表
+    // 身体组选择槽（最多 6 组）
+    in-out property <bool> bg-visible-0: false;
+    in-out property <string> bg-name-0;
+    in-out property <string> bg-current-0;
+    in-out property <bool> bg-visible-1: false;
+    in-out property <string> bg-name-1;
+    in-out property <string> bg-current-1;
+    in-out property <bool> bg-visible-2: false;
+    in-out property <string> bg-name-2;
+    in-out property <string> bg-current-2;
+    in-out property <bool> bg-visible-3: false;
+    in-out property <string> bg-name-3;
+    in-out property <string> bg-current-3;
+    in-out property <bool> bg-visible-4: false;
+    in-out property <string> bg-name-4;
+    in-out property <string> bg-current-4;
+    in-out property <bool> bg-visible-5: false;
+    in-out property <string> bg-name-5;
+    in-out property <string> bg-current-5;
+    // 姿势编辑
+    in-out property <bool> pose-bone-has: false;
+    in-out property <int> pose-bone-index: 0;
+    in-out property <string> pose-bone-name;
+    in-out property <float> pose-rot-x: 0;
+    in-out property <float> pose-rot-y: 0;
+    in-out property <float> pose-rot-z: 0;
+
+    // ---------- 关于页字段 ----------
+    in-out property <string> gmpublish;
+    in-out property <string> gmad;
+    // 彩蛋窗：独立运行记录 + LED 时间
+    in-out property <string> run-log;
+    in-out property <string> led-time;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: Theme.background;
+        // 窗口圆角（与 Rust 侧 SetWindowRgn 的圆角半径一致，四角透明露出桌面）
+        border-radius: 16px;
+        // 裁剪内容到圆角内，避免内容溢出到四角
+        clip: true;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+
+        // 标题栏
+        TitleBar {
+            page-index: root.page-index;
+            dark: root.dark;
+            page-changed(i) => { root.page-index = i; root.log-open = false; }
+            lang-clicked => { Backend.action("lang"); }
+            theme-clicked => { Backend.action("theme"); }
+            close-clicked => { Backend.action("quit"); }
+            drag-start => { root.drag-start(); }
+        }
+
+        // 内容区（顶部 2px 贴合标题栏，使各页顶部元素紧邻标题栏）
+        VerticalLayout {
+            vertical-stretch: 1; // 填满标题栏下方全部高度
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 2px; // 顶部 2px 贴合标题栏，使各页顶部元素紧邻标题栏
+            padding-bottom: 0px; // 底部无内边距，使日志凸出条贴窗口底
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                clip: true;
+                PackPage {
+                    visible: root.page-index == 0;
+                    x: 0px; y: 0px; width: 100%; height: 98%;
+                    source-folder <=> root.source-folder;
+                    addon-name <=> root.addon-name;
+                    addon-type-index <=> root.addon-type-index;
+                    tags <=> root.tags;
+                    ignore <=> root.ignore;
+                    description <=> root.description;
+                    addon-version <=> root.addon-version;
+                    steam-id <=> root.steam-id;
+                    out-gma <=> root.out-gma;
+                    gma-file <=> root.gma-file;
+                    icon-path <=> root.icon-path;
+                    icon-preview-image <=> root.icon-preview-image;
+                    icon-has <=> root.icon-has;
+                    upload-mode <=> root.upload-mode;
+                    workshop-id <=> root.workshop-id;
+                    changes <=> root.changes;
+                    extract-gma <=> root.extract-gma;
+                    extract-dir <=> root.extract-dir;
+                    check-clicked => { Backend.action("check"); }
+                    pack-clicked => { Backend.action("pack"); }
+                    upload-clicked => { Backend.action("upload"); }
+                    read-clicked => { Backend.action("read"); }
+                    extract-clicked => { Backend.action("extract"); }
+                    icon-browse => { Backend.action("browse:icon_path"); }
+                    icon-path-changed => { Backend.action("icon_changed"); }
+                }
+
+                ToolsPage {
+                    visible: root.page-index == 2;
+                    x: 0px; y: 0px; width: 100%; height: 98%;
+                    sub <=> root.tools-sub;
+                    sub-changed => { root.log-open = false; }
+                    vpk-src <=> root.vpk-src;
+                    vpk-out <=> root.vpk-out;
+                    vpk-file <=> root.vpk-file;
+                    vpk-dir <=> root.vpk-dir;
+                    vtf-file <=> root.vtf-file;
+                    vtf-out <=> root.vtf-out;
+                    png-file <=> root.png-file;
+                    vtf-enc-out <=> root.vtf-enc-out;
+                    vtf-enc-format <=> root.vtf-enc-format;
+                    vtf-preview-visible <=> root.vtf-preview-visible;
+                    vtf-preview-image <=> root.vtf-preview-image;
+                    png-preview-visible <=> root.png-preview-visible;
+                    png-preview-image <=> root.png-preview-image;
+                    vpk-tree-visible <=> root.vpk-tree-visible;
+                    vpk-tree <=> root.vpk-tree;
+                    mdl-tree-visible <=> root.mdl-tree-visible;
+                    mdl-tree <=> root.mdl-tree;
+                    mdl-file <=> root.mdl-file;
+                    mdl-out-dir <=> root.mdl-out-dir;
+                    qc-file <=> root.qc-file;
+                    mdl-pack-out <=> root.mdl-pack-out;
+                    studiomdl <=> root.studiomdl;
+                    view-mdl-file <=> root.view-mdl-file;
+                    view-mdl-name <=> root.view-mdl-name;
+                    view-preview-image <=> root.view-preview-image;
+                    view-meta <=> root.view-meta;
+                    view-stats <=> root.view-stats;
+                    view-wire <=> root.view-wire;
+                    view-shade <=> root.view-shade;
+                    view-bone <=> root.view-bone;
+                    view-texture <=> root.view-texture;
+                    view-hitbox <=> root.view-hitbox;
+                    view-attach <=> root.view-attach;
+                    view-grid <=> root.view-grid;
+                    view-axes <=> root.view-axes;
+                    view-ortho <=> root.view-ortho;
+                    view-uv <=> root.view-uv;
+                    view-flat <=> root.view-flat;
+                    view-fullbright <=> root.view-fullbright;
+                    view-normal <=> root.view-normal;
+                    view-bounds <=> root.view-bounds;
+                    view-skin-family <=> root.view-skin-family;
+                    view-skin-count <=> root.view-skin-count;
+                    view-skin-names <=> root.view-skin-names;
+                    view-fov <=> root.view-fov;
+                    view-model-open <=> root.view-model-open;
+                    view-model-names <=> root.view-model-names;
+                    anim-seq <=> root.anim-seq;
+                    anim-frames <=> root.anim-frames;
+                    anim-frame <=> root.anim-frame;
+                    anim-playing <=> root.anim-playing;
+                    seq-open <=> root.seq-open;
+                    seq-names <=> root.seq-names;
+                    bg-visible-0 <=> root.bg-visible-0;
+                    bg-name-0 <=> root.bg-name-0;
+                    bg-current-0 <=> root.bg-current-0;
+                    bg-visible-1 <=> root.bg-visible-1;
+                    bg-name-1 <=> root.bg-name-1;
+                    bg-current-1 <=> root.bg-current-1;
+                    bg-visible-2 <=> root.bg-visible-2;
+                    bg-name-2 <=> root.bg-name-2;
+                    bg-current-2 <=> root.bg-current-2;
+                    bg-visible-3 <=> root.bg-visible-3;
+                    bg-name-3 <=> root.bg-name-3;
+                    bg-current-3 <=> root.bg-current-3;
+                    bg-visible-4 <=> root.bg-visible-4;
+                    bg-name-4 <=> root.bg-name-4;
+                    bg-current-4 <=> root.bg-current-4;
+                    bg-visible-5 <=> root.bg-visible-5;
+                    bg-name-5 <=> root.bg-name-5;
+                    bg-current-5 <=> root.bg-current-5;
+                    pose-bone-has <=> root.pose-bone-has;
+                    pose-bone-index <=> root.pose-bone-index;
+                    pose-bone-name <=> root.pose-bone-name;
+                    pose-rot-x <=> root.pose-rot-x;
+                    pose-rot-y <=> root.pose-rot-y;
+                    pose-rot-z <=> root.pose-rot-z;
+                    view-drag-move(dx, dy) => { root.view-drag-move(dx, dy); }
+                    vpk-pack => { Backend.action("vpk_pack"); }
+                    vpk-list => { Backend.action("vpk_list"); }
+                    vpk-unpack => { Backend.action("vpk_unpack"); }
+                    vtf-info => { Backend.action("vtf_info"); }
+                    vtf-convert => { Backend.action("vtf_convert"); }
+                    vtf-encode => { Backend.action("vtf_encode"); }
+                    vtf-preview => { Backend.action("vtf_preview"); }
+                    png-preview => { Backend.action("png_preview"); }
+                    mdl-info => { Backend.action("mdl_info"); }
+                    mdl-decompile => { Backend.action("mdl_decompile"); }
+                    mdl-pack => { Backend.action("mdl_pack"); }
+                    detect-smdl => { Backend.action("detect_smdl"); }
+                    view-load => { Backend.action("view_load"); }
+                    view-rot(c) => { Backend.action("view_rot:" + c); }
+                    view-zoom(c) => { Backend.action("view_zoom:" + c); }
+                }
+
+                AboutPage {
+                    visible: root.page-index == 1;
+                    x: 0px; y: 0px; width: 100%; height: 98%;
+                    gmpublish <=> root.gmpublish;
+                    gmad <=> root.gmad;
+                    studiomdl <=> root.studiomdl;
+                    run-log <=> root.run-log;
+                    led-time <=> root.led-time;
+                    egg-tick => { Backend.action("egg_tick"); }
+                    detect-all => { Backend.action("detect_all"); }
+                    open-github => { Backend.action("open_github"); }
+                }
+
+                // 日志抽屉覆盖层：置于内容区内绝对定位，不参与主窗布局（避免挤压内容区高度），
+                // 模型查看页（其他工具 sub==3）完全隐藏
+                LogDrawer {
+                    // 关于页、模型查看页（其他工具 sub==3）完全隐藏，包括收起态凸出条
+                    visible: !(root.page-index == 1 || (root.page-index == 2 && root.tools-sub == 3));
+                    y: root.log-open ? parent.height - parent.height / 3 : parent.height;
+                    height: parent.height / 3;
+                    open: root.log-open;
+                    log-text <=> root.log-text;
+                    status: root.status;
+                    progress: root.progress;
+                    progress-visible: root.progress-visible;
+                    close-clicked => { root.log-open = false; }
+                    open-clicked => { root.log-open = true; }
+                }
+            }
+        }
+    }
+
+    // 启动动画覆盖层（最上层，淡出后自动隐藏）
+    Splash {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+    }
+
+    // 轻提示（最顶层，右下角胶囊）
+    Toast {
+        win-width: root.width;
+        win-height: root.height;
+        show: root.toast-show;
+        text: root.toast-text;
+        kind: root.toast-kind;
+    }
+    }
+}

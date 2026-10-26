@@ -1,0 +1,261 @@
+// 通用 UI 基础组件：按钮 / 卡片 / 卡片标题 / 输入字段 / 下拉框 / 分隔线
+import { I18n, Backend, Theme } from "globals.slint";
+import { ComboBox } from "std-widgets.slint";
+
+// ---------- 按钮（primary / ghost / mini） ----------
+export component ActionButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary: false;
+    in property <bool> ghost: false;
+    in property <bool> disabled: false;
+    callback clicked();
+
+    height: 32px;
+    border-radius: 6px;
+    background: disabled
+        ? Theme.background
+        : (primary
+            ? (ta.has-hover ? Theme.accent-gradient-hover : Theme.accent-gradient)
+            : (ta.has-hover ? Theme.hover : (ghost ? transparent : Theme.button-background)));
+    border-width: 1px;
+    border-color: primary ? transparent : (ta.has-hover ? Theme.accent : Theme.outline);
+
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        enabled: !root.disabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.text;
+        font-size: 13px;
+        color: disabled
+            ? Theme.neutral-foreground
+            : (primary ? Theme.foreground-on-accent : Theme.foreground);
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+// 紧凑小按钮（浏览 / 探测）
+export component MiniButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    width: 58px;
+    height: 30px;
+    border-radius: 6px;
+    background: ta.has-hover ? Theme.hover : Theme.button-background;
+    border-width: 1px;
+    border-color: ta.has-hover ? Theme.accent : transparent;
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.text;
+        font-size: 12px;
+        color: Theme.button-foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+// ---------- 卡片容器 ----------
+export component Card inherits Rectangle {
+    background: Theme.window-background;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: Theme.outline;
+    @children
+}
+
+// 卡片标题行：左标题 + 右动作区（@children）
+export component CardHead inherits HorizontalLayout {
+    in property <string> title;
+    cross-axis-alignment: center;
+    spacing: 8px;
+    height: 34px;
+
+    Text {
+        text: root.title;
+        font-size: 15px;
+        font-weight: 600;
+        color: Theme.foreground;
+        vertical-alignment: center;
+        horizontal-stretch: 1;
+    }
+    @children
+}
+
+// 字段标签
+export component FieldLabel inherits Text {
+    in property <string> key;
+    text: I18n.tr(root.key, I18n.lang);
+    font-size: 12px;
+    color: Theme.foreground;
+}
+
+// 单行输入框（双向往返 + 占位提示 + 数字/文本输入类型 + 长文本横向滚动跟随光标）
+// 说明：Slint 的 TextInput 不自动滚动视口，按官方推荐做法，在 cursor-position-changed
+// 里调整 TextInput 自身的 x 偏移，使光标移出可视区时视口随之滚动到光标附近。
+export component LineInput inherits Rectangle {
+    callback changed(string);
+    in property <string> placeholder-key;
+    in property <bool> read-only: false;
+    in property <int> input-type: 0;   // 0 文本，1 数字（自动禁中文/字母/符号）
+    in-out property <string> value;
+
+    height: 32px;
+    border-radius: 6px;
+    clip: true; // 长文本裁剪在框内，配合 TextInput 的 x 偏移滚动
+    background: Theme.input-background;
+    border-width: 1px;
+    border-color: Theme.outline;
+
+    // 占位提示（值空时显示）
+    Text {
+        x: 12px;
+        y: 0px;
+        width: parent.width - 24px;
+        height: parent.height;
+        visible: root.value == "";
+        text: I18n.tr(root.placeholder-key, I18n.lang);
+        color: Theme.neutral-foreground;
+        vertical-alignment: center;
+        font-size: 13px;
+    }
+
+    // 输入区：TextInput 宽为内容宽，光标移出可视区时调整 self.x 滚动视口（官方做法）
+    TextInput {
+        x: 8px;
+        y: 0px;
+        width: max(parent.width - 16px, self.preferred-width);
+        height: parent.height;
+        vertical-alignment: center;
+        text <=> root.value;
+        read-only: root.read-only;
+        input-type: root.input-type == 1 ? InputType.number : InputType.text;
+        color: Theme.input-foreground;
+        font-size: 13px;
+        edited => { root.changed(self.text); }
+        // 光标移出可视区时滚动视口使光标可见（左留 8px 边距、右留 8px 边距 + 光标宽）
+        cursor-position-changed(cp) => {
+            if cp.x + self.x < 8px {
+                self.x = -cp.x + 8px;
+            } else if cp.x + self.x > parent.width - 8px - self.text-cursor-width {
+                self.x = parent.width - cp.x - 8px - self.text-cursor-width;
+            }
+        }
+    }
+}
+
+// 字段：标签 + 行内（输入框 + 浏览按钮）
+export component Field inherits VerticalLayout {
+    callback value-changed(string);
+    in property <string> label-key;
+    in property <string> placeholder-key;
+    in property <string> field-id;
+    in property <bool> browse-visible: true;
+    in property <bool> read-only: false;
+    in property <int> input-type: 0;
+    in-out property <string> value;
+
+    spacing: 4px;
+    height: 54px;
+
+    FieldLabel { key: root.label-key; }
+
+    HorizontalLayout {
+        spacing: 6px;
+        cross-axis-alignment: center;
+        LineInput {
+            placeholder-key: root.placeholder-key;
+            value <=> root.value;
+            read-only: root.read-only;
+            input-type: root.input-type;
+            changed(v) => { root.value-changed(v); }
+        }
+        if root.browse-visible : MiniButton {
+            text: I18n.tr("btnBrowse", I18n.lang);
+            clicked => { Backend.action("browse:" + root.field-id); }
+        }
+    }
+}
+
+// 文本域（多行）
+export component AreaInput inherits Rectangle {
+    in property <string> placeholder-key;
+    in-out property <string> value;
+
+    height: 74px;
+    border-radius: 6px;
+    background: Theme.input-background;
+    border-width: 1px;
+    border-color: Theme.outline;
+
+    Text {
+        x: 12px;
+        y: 6px;
+        width: parent.width - 24px;
+        height: parent.height - 12px;
+        visible: root.value == "";
+        text: I18n.tr(root.placeholder-key, I18n.lang);
+        color: Theme.neutral-foreground;
+        vertical-alignment: top;
+        font-size: 13px;
+    }
+    TextInput {
+        x: 8px;
+        y: 6px;
+        width: parent.width - 16px;
+        height: parent.height - 12px;
+        text <=> root.value;
+        single-line: false;
+        color: Theme.input-foreground;
+        font-size: 13px;
+    }
+}
+
+// 下拉框（选择）
+export component SelectField inherits Rectangle {
+    in property <string> label-key;
+    in-out property <int> index;
+    in property <[string]> model;
+
+    height: 32px;
+    border-radius: 6px;
+    background: Theme.input-background;
+    border-width: 1px;
+    border-color: Theme.outline;
+
+    ComboBox {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        model: root.model;
+        current-index <=> root.index;
+    }
+}
+
+// 竖分隔线
+export component SectionDivider inherits Rectangle {
+    height: 1px;
+    background: Theme.outline;
+}
+
+// 提示文字（灰底说明）
+export component NoteText inherits Text {
+    in property <string> key;
+    text: I18n.tr(root.key, I18n.lang);
+    font-size: 12px;
+    color: Theme.neutral-foreground;
+    wrap: word-wrap;
+}

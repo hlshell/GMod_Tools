@@ -1,0 +1,244 @@
+// 页面：关于（备用手动配置 + 应用信息）
+import { I18n, Backend, Theme } from "../components/globals.slint";
+import { ActionButton, MiniButton, Card, CardHead, Field, SectionDivider } from "../components/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+// 信息行：左标签 + 右值
+export component InfoLine inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    spacing: 8px;
+    height: 22px;
+    Text { text: root.label + "："; font-size: 13px; color: Theme.neutral-foreground; }
+    Text { text: root.value; font-size: 13px; color: Theme.foreground; }
+}
+
+export component AboutPage inherits Rectangle {
+    in-out property <string> gmpublish;
+    in-out property <string> gmad;
+    in-out property <string> studiomdl;
+    // 彩蛋窗：LED 时间 + 独立运行记录
+    in property <string> led-time;
+    in property <string> run-log;
+    in-out property <bool> egg-open: false;
+    in-out property <int> egg-count: 0;
+    in-out property <length> led-offset: 520px;
+
+    callback detect-all();
+    callback open-github();
+    callback egg-tick();
+
+    ScrollView {
+        width: parent.width;
+        height: parent.height;
+        VerticalLayout {
+            width: parent.width;
+            padding: 16px;
+            spacing: 12px;
+
+            // 头部
+            VerticalLayout {
+                spacing: 4px;
+                Text {
+                    text: I18n.tr("aboutSub", I18n.lang);
+                    font-size: 12px;
+                    color: Theme.neutral-foreground;
+                }
+            }
+
+            // 备用手动配置
+            Card {
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    // 配置卡标题行：标题(左) + 单个探测按钮(卡片最右侧)
+                    HorizontalLayout {
+                        spacing: 8px;
+                        cross-axis-alignment: center;
+                        Text {
+                            text: I18n.tr("aboutTools", I18n.lang);
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: Theme.foreground;
+                            horizontal-stretch: 1;
+                        }
+                        MiniButton { text: I18n.tr("btnDetect", I18n.lang); clicked => { root.detect-all(); } }
+                    }
+                    Text {
+                        text: I18n.tr("aboutNote", I18n.lang);
+                        font-size: 12px;
+                        color: Theme.neutral-foreground;
+                        wrap: word-wrap;
+                    }
+
+                    Field { label-key: "lblGmp"; placeholder-key: "phGmp"; field-id: "gmpublish"; value <=> root.gmpublish; }
+                    Field { label-key: "lblGmad"; placeholder-key: "phGmad"; field-id: "gmad"; value <=> root.gmad; }
+                    Field { label-key: "lblSmdl"; placeholder-key: "phSmdl"; field-id: "studiomdl_about"; value <=> root.studiomdl; }
+                }
+            }
+
+            // 应用信息
+            Card {
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text {
+                            text: I18n.tr("aboutInfo", I18n.lang);
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: Theme.foreground;
+                            horizontal-stretch: 1;
+                        }
+                        ActionButton {
+                            text: "GitHub";
+                            ghost: true;
+                            width: 110px;
+                            clicked => { root.open-github(); }
+                        }
+                    }
+
+                    SectionDivider { }
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        cross-axis-alignment: start;
+                        // 隐藏彩蛋：连续点击 5 次 logo 弹出彩蛋窗
+                        TouchArea {
+                            width: 64px;
+                            height: 64px;
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.egg-count += 1;
+                                if root.egg-count >= 5 {
+                                    root.egg-count = 0;
+                                    root.egg-open = true;
+                                }
+                            }
+                            Image {
+                                source: @image-url("../assets/logo.png");
+                                width: 64px;
+                                height: 64px;
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            InfoLine { label: I18n.tr("aboutName", I18n.lang); value: I18n.tr("appTitle", I18n.lang); }
+                            InfoLine { label: I18n.tr("aboutVer", I18n.lang); value: "0.5.6"; }
+                            InfoLine { label: I18n.tr("aboutTech", I18n.lang); value: I18n.tr("aboutTechVal", I18n.lang); }
+                            InfoLine { label: I18n.tr("aboutAuthor", I18n.lang); value: "CAT.MI"; }
+                            InfoLine { label: I18n.tr("aboutTeam", I18n.lang); value: "ZPanel.cc Team"; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 彩蛋窗浮层（居中，点击 X 关闭；不阻塞主窗其他操作，只能开一个）
+    if root.egg-open : Rectangle {
+        x: (parent.width - 560px) * 0.5;
+        y: (parent.height - 400px) * 0.5;
+        width: 560px;
+        height: 400px;
+        background: Theme.window-background;
+        border-radius: 14px;
+        border-width: 2px;
+        border-color: Theme.accent;
+        clip: true;
+        // X 关闭
+        TouchArea {
+            x: parent.width - 34px;
+            y: 6px;
+            width: 28px;
+            height: 28px;
+            mouse-cursor: pointer;
+            clicked => { root.egg-open = false; }
+            Image {
+                source: @image-url("../assets/close-x.svg");
+                width: 16px;
+                height: 16px;
+                x: (parent.width - 16px) * 0.5;
+                y: (parent.height - 16px) * 0.5;
+                colorize: Theme.foreground;
+            }
+        }
+        // LED 跑马灯：当前日期时间
+        Rectangle {
+            x: 16px; y: 44px;
+            width: parent.width - 32px;
+            height: 60px;
+            clip: true;
+            border-radius: 8px;
+            background: #06130c;
+            border-width: 1px;
+            border-color: #123b22;
+            Text {
+                x: root.led-offset;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                text: root.led-time;
+                font-family: "Consolas";
+                font-size: 32px;
+                font-weight: 700;
+                color: #2bff6a;
+                vertical-alignment: center;
+            }
+        }
+        // 运行记录标题
+        Text {
+            x: 16px; y: 116px;
+            text: I18n.tr("eggRunLog", I18n.lang);
+            font-size: 13px;
+            font-weight: 600;
+            color: Theme.foreground;
+        }
+        // 独立运行记录（只读可选中复制）
+        Rectangle {
+            x: 16px; y: 140px;
+            width: parent.width - 32px;
+            height: parent.height - 156px;
+            clip: true;
+            border-radius: 8px;
+            background: Theme.background;
+            border-width: 1px;
+            border-color: Theme.outline;
+            TextInput {
+                x: 8px; y: 8px;
+                width: parent.width - 16px;
+                height: parent.height - 16px;
+                text: root.run-log;
+                font-size: 12px;
+                color: Theme.foreground;
+                read-only: true;
+                wrap: word-wrap;
+                horizontal-alignment: left;
+                vertical-alignment: top;
+            }
+        }
+    }
+
+    // 连击节流：1.5 秒内未达 5 次则清零
+    Timer {
+        interval: 1500ms;
+        running: root.egg-count > 0;
+        triggered => { root.egg-count = 0; }
+    }
+    // LED 时间每秒刷新（经 egg-tick 回调由后端填充）
+    Timer {
+        interval: 1000ms;
+        running: root.egg-open;
+        triggered => { root.egg-tick(); }
+    }
+    // LED 跑马灯滚动
+    Timer {
+        interval: 80ms;
+        running: root.egg-open;
+        triggered => {
+            if root.led-offset < -420px { root.led-offset = 520px; }
+            else { root.led-offset -= 14px; }
+        }
+    }
+}

@@ -1,0 +1,250 @@
+// 自定义标题栏 —— 参考 slint-demo（ZPlayer）设计：
+// 圆角容器 Logo + 粗体品牌标题 + 胶囊 Tab + 圆形图标按钮（SVG + hover 底色）+ 底部分割线
+import { I18n, Backend, Theme } from "globals.slint";
+
+// 顶部 Tab 按钮（居中分段切换，胶囊式：active 高亮、hover 底色）
+export component tb-tab inherits Rectangle {
+    in property <string> text;
+    in property <bool> active: false;
+    callback clicked();
+    width: 96px;
+    height: 30px;
+    border-radius: 15px;
+    background: active ? Theme.accent : (ta.has-hover ? Theme.hover : transparent);
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.text;
+        font-size: 13px;
+        color: active ? Theme.foreground-on-accent : Theme.foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+// 右侧圆形图标按钮（语言 / 主题 / 日志）：优先显示 SVG 图标（可着色），无图标时回退文字，hover 底色
+export component tb-icon-btn inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    callback clicked();
+    width: 34px;
+    height: 34px;
+    border-radius: 17px;
+    background: ta.has-hover ? Theme.hover : transparent;
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Image {
+        source: root.icon;
+        width: 18px;
+        height: 18px;
+        x: (parent.width - 18px) * 0.5;
+        y: (parent.height - 18px) * 0.5;
+        colorize: Theme.button-foreground;
+        visible: root.icon.width > 0;
+    }
+    Text {
+        text: root.label;
+        font-size: 12px;
+        font-weight: 600;
+        color: Theme.button-foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+        visible: !(root.icon.width > 0);
+    }
+}
+
+// 关闭按钮（hover 红色，Windows 惯例）
+export component tb-close-btn inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    callback clicked();
+    width: 40px;
+    height: 34px;
+    border-radius: 8px;
+    background: ta.has-hover ? #e81123 : transparent;
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Image {
+        source: root.icon;
+        width: 16px;
+        height: 16px;
+        x: (parent.width - 16px) * 0.5;
+        y: (parent.height - 16px) * 0.5;
+        colorize: ta.has-hover ? #ffffff : Theme.button-foreground;
+        visible: root.icon.width > 0;
+    }
+    Text {
+        text: root.label;
+        font-size: 14px;
+        color: ta.has-hover ? #ffffff : Theme.button-foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+        visible: !(root.icon.width > 0);
+    }
+}
+
+// 主标题栏组件
+export component TitleBar inherits Rectangle {
+    in-out property <int> page-index: 0;
+    in property <bool> dark: false;
+    callback page-changed(int);
+    callback lang-clicked();
+    callback theme-clicked();
+    callback close-clicked();
+    // 拖拽：位移超阈值后触发一次，交给系统原生窗口拖拽（drag_window）
+    callback drag-start();
+
+    // 拖拽阈值状态：按下位置 + 是否已触发（每次按下只触发一次）
+    private property <length> press-x: 0px;
+    private property <length> press-y: 0px;
+    private property <bool> drag-fired: false;
+
+    height: 48px;
+    background: Theme.window-background;
+
+    // 全区域背景交互层（声明在按钮层之前，按钮在上层可正常点击）：
+    // 空白处按住拖拽移动窗口。moved 加 4px 阈值且每次按下只触发一次，避免微位移即触发系统模态拖拽循环造成闪跳。
+    TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.press-x = self.mouse-x;
+                root.press-y = self.mouse-y;
+                root.drag-fired = false;
+            }
+        }
+        moved => {
+            if !root.drag-fired
+                && Math.abs(self.mouse-x - root.press-x) + Math.abs(self.mouse-y - root.press-y) > 4px {
+                root.drag-fired = true;
+                root.drag-start();
+            }
+        }
+        clicked => {
+            // 已进入系统拖拽的释放不算单击
+            if !root.drag-fired {
+                // 预留：单击标题栏（可用于双击最大化）
+            }
+        }
+    }
+
+    // 底部分割线（不占布局，避免把内容顶上去）
+    Rectangle {
+        y: parent.height - 1px;
+        width: 100%;
+        height: 1px;
+        background: Theme.outline;
+    }
+
+    // 主内容：铺满 48px，交叉轴居中
+    HorizontalLayout {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        spacing: 10px;
+        padding-left: 16px;
+        padding-right: 10px;
+        cross-axis-alignment: center;
+
+        // 左侧：Logo + 当前页名（随 TAB 决定，标题栏为未来功能腾位）
+        Rectangle {
+            height: 34px;
+            HorizontalLayout {
+                spacing: 10px;
+                height: 100%;
+                cross-axis-alignment: center;
+
+                Rectangle {
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 8px;
+                    clip: true;
+                    background: Theme.background;
+                    Image {
+                        source: @image-url("../assets/logo.png"); // 品牌 Logo（渐变圆环 + 立方体 + 文档 + 扳手）
+                        width: 26px;
+                        height: 26px;
+                    }
+                }
+                Text {
+                    text: root.page-index == 0 ? I18n.tr("tabMain", I18n.lang)
+                        : root.page-index == 2 ? I18n.tr("tabTools", I18n.lang)
+                        : I18n.tr("tabAbout", I18n.lang);
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: Theme.accent;
+                    letter-spacing: 0.2px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // 中部：分段 Tab（弹性占满中间，随窗口宽度自适应）
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            cross-axis-alignment: center;
+            spacing: 4px;
+
+            tb-tab {
+                text: I18n.tr("tabMain", I18n.lang);
+                active: root.page-index == 0;
+                clicked => { root.page-changed(0); }
+            }
+            tb-tab {
+                text: I18n.tr("tabTools", I18n.lang);
+                active: root.page-index == 2;
+                clicked => { root.page-changed(2); }
+            }
+            tb-tab {
+                text: I18n.tr("tabAbout", I18n.lang);
+                active: root.page-index == 1;
+                clicked => { root.page-changed(1); }
+            }
+        }
+
+        // 右侧：语言 / 主题 / 关闭（日志展开收起由底部/顶部抽屉凸起片承担）
+        HorizontalLayout {
+            spacing: 4px;
+            cross-axis-alignment: center;
+            alignment: end;
+
+            tb-icon-btn {
+                label: I18n.lang == 0 ? "EN" : "中文";
+                clicked => { root.lang-clicked(); }
+            }
+            tb-icon-btn {
+                icon: root.dark ? @image-url("../assets/theme-sun.svg") : @image-url("../assets/theme-moon.svg");
+                label: root.dark ? "☀" : "🌙";
+                clicked => { root.theme-clicked(); }
+            }
+            tb-close-btn {
+                icon: @image-url("../assets/close-x.svg");
+                label: "✕";
+                clicked => { root.close-clicked(); }
+            }
+        }
+    }
+}

@@ -1,0 +1,87 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build (release)
+        run: cargo build --release --verbose
+
+      - name: Run tests (release)
+        run: cargo test --release --verbose
+
+      - name: Package exe -> GMod_Tools-win64.zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path target\release\gma-slint.exe -DestinationPath GMod_Tools-win64.zip -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: GMod_Tools-win64.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built zip
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: release
+
+      - name: Remove old releases (keep only one latest)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const releases = await github.paginate(github.rest.repos.listReleases, { owner, repo, per_page: 100 });
+            for (const r of releases) {
+              await github.rest.repos.deleteRelease({ owner, repo, release_id: r.id });
+              try { await github.rest.git.deleteRef({ owner, repo, ref: `tags/${r.tag_name}` }); } catch (_) {}
+            }
+
+      - name: Create latest release (single version, EN/CN body from README)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: GMod_Tools Latest
+          body: |
+            ## ✨ 功能特性 / Features
+            - 📦 GMA 打包 / 解包 · GMA pack / unpack
+            - 🖼️ VTF / VMT 预览、导出与编辑 · VTF / VMT preview, export & edit
+            - 🧩 VPK 打包 / 解包 / 列表 · VPK pack / unpack / listing
+            - 🦴 MDL 解包（.vvd / .vtx → .smd）与骨架、网格查看 · MDL unpack, skeleton & mesh viewer
+            - 🔍 模型、材质、音效资源校验 · Asset validation
+            - 💻 Lua 片段测试与格式化 · Lua snippet runner & formatter
+            - 🗂️ 模组目录规范化整理 · Addon folder standardization
+            - 🌓 深色 / 浅色主题切换 · Light / Dark theme switch
+
+            > Windows only（仅 Windows 64 位）。资源处理全部内置自研，无需第三方工具。
+            > All asset processing is built-in; no third-party tools required.
+
+            **下载 / Download：`GMod_Tools-win64.zip`**
+          files: release/GMod_Tools-win64.zip
+          generate_release_notes: false

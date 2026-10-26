@@ -1,0 +1,53 @@
+// 底部日志 + 进度条 + 状态行
+import { I18n, Backend, Theme } from "globals.slint";
+
+export component LogBar inherits VerticalLayout {
+    in-out property <string> log-text: "";
+    in-out property <string> status: "";
+    in-out property <float> progress: 0.0;
+    in-out property <bool> progress-visible: false;
+
+    spacing: 6px;
+    height: 150px;
+    padding: 8px;
+
+    // 日志区（多行只读，自动换行）
+    TextInput {
+        width: parent.width - 16px;
+        height: parent.height - 46px;
+        text: root.log-text;
+        read-only: true;
+        single-line: false;
+        wrap: word-wrap;
+        font-size: 12px;
+        color: Theme.foreground;
+    }
+
+    // 状态 + 进度
+    HorizontalLayout {
+        spacing: 8px;
+        cross-axis-alignment: center;
+        height: 26px;
+
+        if root.progress-visible : Rectangle {
+            width: 160px;
+            height: 8px;
+            border-radius: 4px;
+            background: Theme.input-background;
+            Rectangle {
+                width: parent.width * root.progress;
+                height: parent.height;
+                border-radius: 4px;
+                background: Theme.accent;
+            }
+        }
+
+        Text {
+            text: root.status;
+            font-size: 12px;
+            color: Theme.foreground;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+}

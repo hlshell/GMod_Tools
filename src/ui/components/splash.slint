@@ -1,0 +1,162 @@
+// 启动动画：全窗口覆盖层。
+// Logo 弹性缩放 + 轻微旋转入场，标题/副标题依次淡入上移，
+// 进度条改为高光扫光效果，整体更有质感。
+import { I18n, Theme } from "globals.slint";
+
+export component Splash inherits Rectangle {
+    in-out property <bool> done: false;
+
+    // 动画控制属性
+    private property <float> logo-scale: 0.6;
+    private property <angle> logo-rotation: -12deg;
+    private property <float> logo-opacity: 0.0;
+    private property <float> title-opacity: 0.0;
+    private property <length> title-y: 12px;
+    private property <float> sub-opacity: 0.0;
+    private property <length> sub-y: 10px;
+    private property <float> bar-opacity: 0.0;
+    private property <length> sweep-x: -100px;   // 扫光起始位置偏左
+
+    background: Theme.background;
+
+    // 整体淡出
+    opacity: root.done ? 0.0 : 1.0;
+    animate opacity { duration: 480ms; easing: ease-in; }
+    visible: self.opacity > 0.02;
+
+    // 主延时：约 1.7s 后开始淡出
+    Timer {
+        interval: 1700ms;
+        running: !root.done;
+        triggered() => { root.done = true; }
+    }
+
+    // Logo 入场动画（启动后立即触发）
+    Timer {
+        interval: 30ms;
+        running: !root.done && root.logo-opacity < 0.99;
+        triggered() => {
+            root.logo-scale = 1.0;
+            root.logo-rotation = 0deg;
+            root.logo-opacity = 1.0;
+        }
+    }
+
+    // 标题稍晚出现
+    Timer {
+        interval: 280ms;
+        running: !root.done && root.title-opacity < 0.99;
+        triggered() => {
+            root.title-opacity = 1.0;
+            root.title-y = 0px;
+        }
+    }
+
+    // 副标题再晚一点
+    Timer {
+        interval: 420ms;
+        running: !root.done && root.sub-opacity < 0.99;
+        triggered() => {
+            root.sub-opacity = 1.0;
+            root.sub-y = 0px;
+        }
+    }
+
+    // 进度条出现
+    Timer {
+        interval: 520ms;
+        running: !root.done && root.bar-opacity < 0.99;
+        triggered() => {
+            root.bar-opacity = 1.0;
+        }
+    }
+
+    // 扫光循环（进度条出现后开始）
+    Timer {
+        interval: 1100ms;
+        running: !root.done && root.bar-opacity > 0.9;
+        triggered() => {
+            // 从左扫到右，再瞬间重置（通过 animate 实现平滑）
+            root.sweep-x = root.sweep-x < 0px ? 280px : -100px;
+        }
+    }
+
+    // 可选：Logo 轻微呼吸（可选开启）
+    // private property <float> breath: 1.0;
+    // Timer {
+    //     interval: 1600ms;
+    //     running: !root.done && root.logo-opacity > 0.95;
+    //     triggered() => { root.breath = root.breath > 1.0 ? 1.0 : 1.035; }
+    // }
+
+    HorizontalLayout {
+        alignment: center;
+        VerticalLayout {
+            alignment: center;
+            spacing: 18px;
+
+            // Logo
+            Image {
+                source: @image-url("../assets/logo.png");
+                width: 118px;
+                height: 118px;
+                opacity: root.logo-opacity;
+                transform-scale: root.logo-scale;          // 或 root.logo-scale * root.breath
+                transform-rotation: root.logo-rotation;
+                animate opacity { duration: 480ms; easing: ease-out; }
+                animate transform-scale { duration: 620ms; easing: ease-out-back; }  // 弹性效果
+                animate transform-rotation { duration: 620ms; easing: ease-out; }
+            }
+
+            // 标题
+            Text {
+                text: I18n.tr("appTitle", I18n.lang);
+                font-size: 27px;
+                font-weight: 700;
+                color: Theme.foreground;
+                horizontal-alignment: center;
+                opacity: root.title-opacity;
+                animate opacity { duration: 420ms; easing: ease-out; }
+            }
+
+            // 副标题
+            Text {
+                text: I18n.tr("aboutSub", I18n.lang);
+                font-size: 13.5px;
+                color: Theme.neutral-foreground;
+                horizontal-alignment: center;
+                opacity: root.sub-opacity;
+                animate opacity { duration: 400ms; easing: ease-out; }
+            }
+
+            // 进度条（高光扫光版）
+            Rectangle {
+                width: 270px;
+                height: 5px;
+                border-radius: 3px;
+                background: Theme.outline;
+                opacity: root.bar-opacity;
+                clip: true;   // 重要：裁剪扫光溢出
+
+                animate opacity { duration: 380ms; easing: ease-out; }
+
+                // 扫光高光条
+                Rectangle {
+                    x: root.sweep-x;
+                    width: 90px;
+                    height: parent.height;
+                    border-radius: 3px;
+                    // 用渐变做更自然的高光（如果 Theme 支持 LinearGradient）
+                    background: Theme.accent;
+                    // 如果想更高级，可改成：
+                    // background: @linear-gradient(90deg, transparent, Theme.accent, transparent);
+                    opacity: 0.85;
+                    animate x {
+                        duration: 1000ms;
+                        easing: ease-in-out;
+                    }
+                }
+            }
+        }
+    }
+}

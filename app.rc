@@ -1,0 +1,3 @@
+// Windows 资源脚本：把 app.ico 作为 exe 的应用图标
+// 路径相对 build.rs 的工作目录（crate 根 app/）
+1 ICON "src/ui/assets/app.ico"

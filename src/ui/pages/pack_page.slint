@@ -1,0 +1,257 @@
+// 页面：打包与上传（左卡 打包 GMA；右卡 上传创意工坊 + 解包工具）
+import { I18n, Backend, Theme } from "../components/globals.slint";
+import {
+    ActionButton, MiniButton, Card, CardHead, Field, FieldLabel, LineInput, AreaInput, SelectField,
+    SectionDivider,
+} from "../components/widgets.slint";
+
+// 上传方式单选按钮（宽度按文字自适应，避免中/英文切换时溢出）
+export component ModeRadio inherits Rectangle {
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+    property <length> content-w: max(112px, tl.preferred-width + 34px);
+    width: root.content-w;
+    height: 30px;
+    border-radius: 6px;
+    background: active ? Theme.accent : (ta.has-hover ? Theme.hover : Theme.button-background);
+    border-width: 1px;
+    border-color: active ? transparent : (ta.has-hover ? Theme.accent : transparent);
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        spacing: 6px;
+        cross-axis-alignment: center;
+        padding-left: 10px;
+        padding-right: 10px;
+        Rectangle {
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background: active ? Theme.foreground-on-accent : transparent;
+            border-width: 1px;
+            border-color: active ? Theme.foreground-on-accent : Theme.outline;
+        }
+        tl := Text {
+            text: root.label;
+            font-size: 12px;
+            color: active ? Theme.foreground-on-accent : Theme.foreground;
+            wrap: no-wrap;
+            overflow: elide;
+        }
+    }
+}
+
+// 图标预览块：显示封面；未添加图标时显示占位框 + “+”图标
+export component IconPreview inherits Rectangle {
+    in property <image> src;
+    in property <bool> has: false;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background: Theme.button-background;
+    border-width: 1px;
+    border-color: has ? Theme.outline : (th.has-hover ? Theme.accent : Theme.outline);
+    clip: true;
+    th := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    callback clicked();
+    Image {
+        visible: root.has;
+        width: parent.width;
+        height: parent.height;
+        source: root.src;
+        image-fit: cover;
+    }
+    // 占位 “+”
+    Text {
+        visible: !root.has;
+        text: "+";
+        font-size: 26px;
+        color: Theme.neutral-foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component PackPage inherits HorizontalLayout {
+    // --- 打包字段 ---
+    in-out property <string> source-folder;
+    in-out property <string> addon-name;
+    in-out property <int> addon-type-index: 0;
+    in-out property <string> tags;
+    in-out property <string> ignore;
+    in-out property <string> description;
+    in-out property <string> addon-version: "1";
+    in-out property <string> steam-id;
+    in-out property <string> out-gma;
+    // --- 上传字段 ---
+    in-out property <string> gma-file;
+    in-out property <string> icon-path;
+    in-out property <image> icon-preview-image;
+    in-out property <bool> icon-has: false;
+    in-out property <int> upload-mode: 0; // 0=new 1=update
+    in-out property <string> workshop-id;
+    in-out property <string> changes;
+    // --- 解包字段 ---
+    in-out property <string> extract-gma;
+    in-out property <string> extract-dir;
+
+    callback check-clicked();
+    callback pack-clicked();
+    callback upload-clicked();
+    callback read-clicked();
+    callback extract-clicked();
+    callback icon-browse();
+    callback icon-path-changed();
+    changed icon-path => { root.icon-path-changed(); }
+
+    spacing: 12px;
+    padding: 12px;
+
+    // 左卡：打包 GMA
+    Card {
+        width: 46%;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            CardHead {
+                title: I18n.tr("cardPack", I18n.lang);
+            }
+
+            Field { label-key: "lblSource"; placeholder-key: "phSource"; field-id: "source_folder"; value <=> root.source-folder; }
+            GridLayout {
+                spacing: 10px;
+                Row {
+                    Field { label-key: "lblName"; placeholder-key: "phName"; field-id: "addon_name"; browse-visible: false; value <=> root.addon-name; }
+                }
+                Row {
+                    VerticalLayout {
+                        spacing: 2px;
+                        alignment: start;
+                        FieldLabel { key: "lblType"; }
+                        SelectField {
+                            index <=> root.addon-type-index;
+                            model: ["ServerContent", "gamemode", "map", "weapon", "vehicle", "npc", "tool", "effects", "model"];
+                        }
+                    }
+                }
+                Row {
+                    Field { label-key: "lblTags"; placeholder-key: "phTags"; field-id: "tags"; browse-visible: false; value <=> root.tags; }
+                }
+                Row {
+                    Field { label-key: "lblIgnore"; placeholder-key: "phIgnore"; field-id: "ignore"; browse-visible: false; value <=> root.ignore; }
+                }
+            }
+
+            Field { label-key: "lblOut"; placeholder-key: "phOut"; field-id: "out_gma"; browse-visible: false; value <=> root.out-gma; }
+
+            // 底部操作按钮（卡片底部，宽度占满卡片，多按钮均衡拉宽）
+            HorizontalLayout {
+                spacing: 8px;
+                ActionButton { text: I18n.tr("btnCheck", I18n.lang); ghost: true; horizontal-stretch: 1; clicked => { root.check-clicked(); } }
+                ActionButton { text: I18n.tr("btnPack", I18n.lang); primary: true; horizontal-stretch: 1; clicked => { root.pack-clicked(); } }
+            }
+        }
+    }
+
+    // 右卡：上传 + 解包
+    Card {
+        width: 54%;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+
+            // 上传区
+            VerticalLayout {
+                spacing: 10px;
+                CardHead {
+                    title: I18n.tr("cardUpload", I18n.lang);
+                    // 上传方式（创建/更新单选）置于卡片标题右侧
+                    HorizontalLayout {
+                        spacing: 6px;
+                        cross-axis-alignment: center;
+                        ModeRadio { label: I18n.tr("modeNew", I18n.lang); active: root.upload-mode == 0; clicked => { root.upload-mode = 0; } }
+                        ModeRadio { label: I18n.tr("modeUpdate", I18n.lang); active: root.upload-mode == 1; clicked => { root.upload-mode = 1; } }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    cross-axis-alignment: start;
+                    IconPreview {
+                        src: root.icon-preview-image;
+                        has: root.icon-has;
+                        clicked => { root.icon-browse(); }
+                    }
+                    // 右侧：.gma 字段（标签旁带图标格式提示）
+                    VerticalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            spacing: 4px;
+                            FieldLabel { key: "lblGma"; }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                cross-axis-alignment: center;
+                                LineInput { placeholder-key: "phGma"; value <=> root.gma-file; }
+                                MiniButton { text: I18n.tr("btnBrowse", I18n.lang); clicked => { Backend.action("browse:gma_file"); } }
+                            }
+                        }
+                    }
+                }
+
+                // 描述框：始终显示（创建/更新均可输入），占位文案随模式变化
+                Field {
+                    label-key: "lblChanges";
+                    placeholder-key: root.upload-mode == 0 ? "phChangesNew" : "phChanges";
+                    field-id: "changes";
+                    browse-visible: false;
+                    value <=> root.changes;
+                }
+
+                // 物品 ID：仅更新模式显示（选创建时隐藏，自然禁止输入）
+                if root.upload-mode == 1 : Field {
+                    label-key: "lblWid";
+                    placeholder-key: "phWid";
+                    field-id: "workshop_id";
+                    browse-visible: false;
+                    input-type: 1;
+                    value <=> root.workshop-id;
+                }
+
+                // 底部操作按钮（上传区底部，宽度占满上传卡片）
+                HorizontalLayout {
+                    ActionButton { text: I18n.tr("btnUpload", I18n.lang); primary: true; horizontal-stretch: 1; clicked => { root.upload-clicked(); } }
+                }
+            }
+
+            SectionDivider { }
+
+            // 解包区
+            VerticalLayout {
+                spacing: 10px;
+                CardHead {
+                    title: I18n.tr("cardUnpack", I18n.lang);
+                }
+                Field { label-key: "lblUgma"; placeholder-key: "phUgma"; field-id: "extract_gma"; value <=> root.extract-gma; }
+                Field { label-key: "lblUout"; placeholder-key: "phUout"; field-id: "extract_dir"; value <=> root.extract-dir; }
+
+                // 底部操作按钮（解包区底部，宽度占满解包卡片，多按钮均衡拉宽）
+                HorizontalLayout {
+                    spacing: 8px;
+                    ActionButton { text: I18n.tr("btnRead", I18n.lang); ghost: true; horizontal-stretch: 1; clicked => { root.read-clicked(); } }
+                    ActionButton { text: I18n.tr("btnExtract", I18n.lang); horizontal-stretch: 1; clicked => { root.extract-clicked(); } }
+                }
+            }
+        }
+    }
+}

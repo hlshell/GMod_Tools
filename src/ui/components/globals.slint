@@ -1,0 +1,195 @@
+// 全局：I18n（翻译，纯函数字典）、Backend（命令通道）、Theme（主题配色）
+
+export global I18n {
+    in-out property <int> lang: 0;
+    // 纯函数字典：lang 0=中文，1=English。纯函数可安全用于属性绑定。
+    public pure function tr(key: string, lang: int) -> string {
+        if key == "appTitle" { return lang == 1 ? "GMod Tools" : "GMod 工具箱"; }
+        if key == "tabMain" { return lang == 1 ? "Pack & Upload" : "打包与上传"; }
+        if key == "tabTools" { return lang == 1 ? "Other Tools" : "其他工具"; }
+        if key == "tabAbout" { return lang == 1 ? "About" : "关于"; }
+        if key == "cardPack" { return lang == 1 ? "Pack GMA" : "打包 GMA"; }
+        if key == "btnCheck" { return lang == 1 ? "Integrity" : "完整性检查"; }
+        if key == "btnPack" { return lang == 1 ? "Pack GMA" : "打包 GMA"; }
+        if key == "lblSource" { return lang == 1 ? "Source folder" : "素材文件夹"; }
+        if key == "phSource" { return lang == 1 ? "Select addon folder (addon.json auto-loaded)" : "选择 addon 文件夹（含 addon.json 将自动读取）"; }
+        if key == "lblName" { return lang == 1 ? "Addon name" : "Addon 名称"; }
+        if key == "phName" { return lang == 1 ? "addon title" : "addon 标题"; }
+        if key == "lblType" { return lang == 1 ? "Addon type" : "Addon 类型"; }
+        if key == "lblVer" { return lang == 1 ? "Addon version" : "Addon 版本"; }
+        if key == "lblSteamId" { return lang == 1 ? "Author SteamID" : "作者 SteamID"; }
+        if key == "phSteamId" { return lang == 1 ? "optional, 64-bit id" : "可选，64 位数字"; }
+        if key == "lblTags" { return lang == 1 ? "Tags (comma)" : "标签（逗号）"; }
+        if key == "phTags" { return lang == 1 ? "max 2, e.g. fun, roleplay" : "最多 2 个，如 fun, roleplay"; }
+        if key == "lblIgnore" { return lang == 1 ? "Ignore patterns" : "忽略通配符"; }
+        if key == "phIgnore" { return lang == 1 ? "e.g. *.psd, *.svn*, .git, *.tmp" : "如 *.psd, *.svn*, .git, *.tmp"; }
+        if key == "lblDesc" { return lang == 1 ? "Description" : "描述"; }
+        if key == "phDesc" { return lang == 1 ? "optional" : "可选"; }
+        if key == "lblOut" { return lang == 1 ? "Output filename" : "输出文件名"; }
+        if key == "phOut" { return lang == 1 ? "filename (auto output to parent of source folder)" : "文件名（自动输出到素材文件夹上一级目录）"; }
+        if key == "btnBrowse" { return lang == 1 ? "Browse" : "浏览"; }
+        if key == "logTitle" { return lang == 1 ? "Log" : "日志"; }
+        if key == "logExpandHint" { return lang == 1 ? "View log" : "查看日志"; }
+        if key == "cardUpload" { return lang == 1 ? "Upload to Workshop" : "上传创意工坊"; }
+        if key == "lblGma" { return lang == 1 ? ".gma file (Icon: JPG format, size: 512×512)" : ".gma文件（图标需以jpg格式并且尺寸为:512*512）"; }
+        if key == "phGma" { return lang == 1 ? "auto-filled after packing" : "打包后自动填入"; }
+        if key == "lblIcon" { return lang == 1 ? "Icon (jpg)" : "图标（jpg）"; }
+        if key == "phIcon" { return lang == 1 ? "workshop preview icon (512×512 recommended)" : "工坊展示图标（建议 512×512）"; }
+        if key == "lblMode" { return lang == 1 ? "Upload mode" : "上传方式"; }
+        if key == "modeNew" { return lang == 1 ? "New Item" : "创建新物品"; }
+        if key == "modeUpdate" { return lang == 1 ? "Update Item" : "更新已有物品"; }
+        if key == "lblWid" { return lang == 1 ? "Item ID" : "物品 ID"; }
+        if key == "phWid" { return lang == 1 ? "workshop item ID (number)" : "工坊物品 ID（数字）"; }
+        if key == "lblChanges" { return lang == 1 ? "Update description (English only)" : "更新描述（只能英文）"; }
+        if key == "phChanges" { return lang == 1 ? "update description (English only)" : "本次更新描述（仅支持英文）"; }
+        if key == "phChangesNew" { return lang == 1 ? "create item description (English only)" : "创建新物品描述（仅支持英文）"; }
+        if key == "btnUpload" { return lang == 1 ? "Upload" : "上传工坊"; }
+        if key == "cardUnpack" { return lang == 1 ? "Unpack" : "解包工具"; }
+        if key == "lblUgma" { return lang == 1 ? "GMA file" : "GMA 文件"; }
+        if key == "phUgma" { return lang == 1 ? "select a .gma file" : "选择 .gma 文件"; }
+        if key == "lblUout" { return lang == 1 ? "Extract to" : "解包到"; }
+        if key == "phUout" { return lang == 1 ? "select output folder" : "选择输出目录"; }
+        if key == "btnRead" { return lang == 1 ? "Read info" : "读取信息"; }
+        if key == "btnExtract" { return lang == 1 ? "Extract" : "开始解包"; }
+        if key == "cardAbout" { return lang == 1 ? "About" : "关于"; }
+        if key == "aboutSub" { return lang == 1 ? "GMod Workshop pack · upload · extract toolkit" : "GMod 创意工坊打包 · 上传 · 解包工具箱"; }
+        if key == "aboutTools" { return lang == 1 ? "Manual backup config" : "备用手动配置"; }
+        if key == "aboutNote" { return lang == 1 ? "Backup settings: if auto-detection fails, configure manually here." : "以下为备用手段：当程序无法自动探测到 gmpublish.exe / gmad.exe / studiomdl.exe 时，可在此手动指定路径。"; }
+        if key == "lblGmp" { return lang == 1 ? "gmpublish.exe" : "gmpublish.exe"; }
+        if key == "phGmp" { return lang == 1 ? "auto-detected, no manual setup" : "自动探测，无需手动设置"; }
+        if key == "lblGmad" { return lang == 1 ? "gmad.exe" : "gmad.exe"; }
+        if key == "phGmad" { return lang == 1 ? "GarrysMod\\bin\\gmad.exe (backup)" : "GarrysMod\\bin\\gmad.exe（备用）"; }
+        if key == "lblSmdl" { return lang == 1 ? "studiomdl.exe" : "studiomdl.exe"; }
+        if key == "phSmdl" { return lang == 1 ? "auto-detect or set manually" : "自动探测或手动指定"; }
+        if key == "btnDetect" { return lang == 1 ? "Auto-detect" : "自动探测"; }
+        if key == "aboutInfo" { return lang == 1 ? "App info" : "应用信息"; }
+        if key == "aboutName" { return lang == 1 ? "Name" : "名称"; }
+        if key == "aboutVer" { return lang == 1 ? "Version" : "版本"; }
+        if key == "aboutTech" { return lang == 1 ? "Tech" : "技术"; }
+        if key == "aboutTechVal" { return lang == 1 ? "Rust + Slint · single self-contained exe" : "Rust + Slint · 单文件自包含"; }
+        if key == "aboutAuthor" { return lang == 1 ? "Author" : "作者"; }
+        if key == "aboutTeam" { return lang == 1 ? "Team" : "团队"; }
+        if key == "subVpk" { return lang == 1 ? "VPK" : "VPK"; }
+        if key == "subVtf" { return lang == 1 ? "VTF" : "VTF"; }
+        if key == "subMdl" { return lang == 1 ? "MDL" : "MDL"; }
+        if key == "subView" { return lang == 1 ? "Model Viewer" : "模型查看"; }
+        if key == "viewTitle" { return lang == 1 ? "MDL Model Viewer" : "MDL模型查看"; }
+        if key == "vpkPack" { return lang == 1 ? "Pack VPK" : "VPK 打包"; }
+        if key == "vpkUnpack" { return lang == 1 ? "Unpack VPK" : "VPK 解包"; }
+        if key == "lblVpkSrc" { return lang == 1 ? "Source folder" : "源文件夹"; }
+        if key == "phVpkSrc" { return lang == 1 ? "folder to pack into a VPK" : "选择要打包为 VPK 的文件夹"; }
+        if key == "lblVpkOut" { return lang == 1 ? "Output .vpk" : "输出 .vpk"; }
+        if key == "phVpkOut" { return lang == 1 ? "optional, defaults to source folder name" : "可留空，自动用源文件夹名"; }
+        if key == "lblVpkFile" { return lang == 1 ? "VPK file" : "VPK 文件"; }
+        if key == "phVpkFile" { return lang == 1 ? "select a .vpk file" : "选择 .vpk 文件"; }
+        if key == "lblVpkOutdir" { return lang == 1 ? "Extract to" : "解包到"; }
+        if key == "phVpkOutdir" { return lang == 1 ? "select output folder" : "选择输出目录"; }
+        if key == "vpkPackBtn" { return lang == 1 ? "Pack VPK" : "打包 VPK"; }
+        if key == "vpkListBtn" { return lang == 1 ? "List files" : "读取列表"; }
+        if key == "vpkTreeTitle" { return lang == 1 ? "VPK Directory Tree" : "VPK 目录结构"; }
+        if key == "vpkUnpackBtn" { return lang == 1 ? "Extract" : "开始解包"; }
+        if key == "vtfConv" { return lang == 1 ? "VTF → PNG" : "VTF → PNG 转换"; }
+        if key == "lblVtf" { return lang == 1 ? "VTF file" : "VTF 文件"; }
+        if key == "phVtf" { return lang == 1 ? "select a .vtf texture" : "选择 .vtf 纹理文件"; }
+        if key == "lblVtfOut" { return lang == 1 ? "Output PNG" : "输出 PNG"; }
+        if key == "phVtfOut" { return lang == 1 ? "optional, defaults to same-dir .png" : "可留空，自动同目录同名.png"; }
+        if key == "btnVtfInfo" { return lang == 1 ? "Read info" : "读取信息"; }
+        if key == "btnVtfConv" { return lang == 1 ? "To PNG" : "转换 PNG"; }
+        if key == "vtfEncode" { return lang == 1 ? "PNG → VTF encode" : "PNG → VTF 编码"; }
+        if key == "lblPng" { return lang == 1 ? "Source PNG" : "源 PNG 图片"; }
+        if key == "phPng" { return lang == 1 ? "select a .png (power-of-two, auto-fitted)" : "选择 .png（需 2 的幂尺寸，自动适配）"; }
+        if key == "lblVtfOut2" { return lang == 1 ? "Output VTF" : "输出 VTF"; }
+        if key == "phVtfOut2" { return lang == 1 ? "optional, defaults to same-dir .vtf" : "可留空，自动同目录同名.vtf"; }
+        if key == "btnVtfEncode" { return lang == 1 ? "To VTF" : "转为 VTF"; }
+        if key == "lblVtfFormat" { return lang == 1 ? "Encode format" : "编码格式"; }
+        if key == "vtfEncodeNote" { return lang == 1 ? "Source textures must be power-of-two; non-PoT is auto-resized." : "Source 纹理尺寸必须为 2 的幂（如 512×512/1024×1024）；非 2 幂会自动缩放适配。"; }
+        if key == "lblMdl" { return lang == 1 ? "MDL file" : "MDL 文件"; }
+        if key == "phMdl" { return lang == 1 ? "select a .mdl model" : "选择 .mdl 模型文件"; }
+        if key == "btnMdlInfo" { return lang == 1 ? "Read info" : "读取信息"; }
+        if key == "mdlTreeTitle" { return lang == 1 ? "MDL Model Tree" : "MDL 模型结构"; }
+        if key == "mdlUnpack" { return lang == 1 ? "MDL unpack (.mdl → .smd)" : "MDL 解包（.mdl → .smd）"; }
+        if key == "mdlUnpackBtn" { return lang == 1 ? "To .smd" : "解包为 .smd"; }
+        if key == "mdlPack" { return lang == 1 ? "MDL pack (.qc → .mdl)" : "MDL 打包（.qc → .mdl）"; }
+        if key == "mdlPackBtn" { return lang == 1 ? "To .mdl" : "打包为 .mdl"; }
+        if key == "lblQc" { return lang == 1 ? "QC file" : "QC 文件"; }
+        if key == "phQc" { return lang == 1 ? "select model .qc (references sibling .smd/.vta)" : "选择模型 .qc（引用同目录 .smd/.vta 源素材）"; }
+        if key == "lblMdlPackOut" { return lang == 1 ? "Output folder" : "输出文件目录"; }
+        if key == "phMdlPackOut" { return lang == 1 ? "optional — copy packed .mdl here (empty uses .qc location)" : "可留空 — 打包完成后将 .mdl 复制到此处（留空则输出到 .qc 指定位置）"; }
+        if key == "mdlPackNote" { return lang == 1 ? "Compile .qc with studiomdl.exe; output location is set by $modelname in .qc." : "通过 studiomdl.exe 编译 .qc；输出位置由 .qc 的 $modelname 决定（相对 GarrysMod 根目录）。"; }
+        if key == "mdlNote" { return lang == 1 ? "Unpack needs sibling .vvd + .vtx, outputs a .smd." : "解包需同目录配套 .vvd + .vtx（dx90/dx80/sw 自动探测），输出 .smd 到指定目录。"; }
+        if key == "btnViewLoad" { return lang == 1 ? "Load preview" : "加载预览"; }
+        if key == "btnWireframe" { return lang == 1 ? "Wireframe" : "线框"; }
+        if key == "btnShaded" { return lang == 1 ? "Shaded" : "着色"; }
+        if key == "btnBones" { return lang == 1 ? "Bones" : "骨骼"; }
+        if key == "btnTexture" { return lang == 1 ? "Texture" : "材质"; }
+        if key == "viewOptions" { return lang == 1 ? "Display" : "显示选项"; }
+        if key == "eggRunLog" { return lang == 1 ? "Runtime Log" : "运行记录"; }
+        if key == "viewHint" { return lang == 1 ? "Drag to rotate · scroll to zoom · right-click for menu (software render)" : "拖拽旋转 · 滚轮缩放 · 右键菜单（软件渲染）"; }
+        if key == "viewReset" { return lang == 1 ? "Reset view" : "复位视角"; }
+        if key == "viewOrtho" { return lang == 1 ? "Orthographic" : "正交视图"; }
+        if key == "viewPersp" { return lang == 1 ? "Perspective" : "透视视图"; }
+        if key == "viewGrid" { return lang == 1 ? "Grid" : "网格"; }
+        if key == "viewAxes" { return lang == 1 ? "Axes" : "坐标轴"; }
+        if key == "viewHitbox" { return lang == 1 ? "Hitboxes" : "命中框"; }
+        if key == "viewAttach" { return lang == 1 ? "Attachments" : "附着点"; }
+        if key == "viewStats" { return lang == 1 ? "Statistics" : "统计信息"; }
+        if key == "viewSequences" { return lang == 1 ? "Sequences" : "序列"; }
+        if key == "viewBodygroups" { return lang == 1 ? "Body Groups" : "身体组"; }
+        if key == "viewPose" { return lang == 1 ? "Pose" : "姿势"; }
+        if key == "viewSeqHint" { return lang == 1 ? "Sequence list (frames · fps). Keyframe playback needs a validated decompressor; skeleton renders bind pose." : "序列列表（帧数 · fps）。关键帧播放需真实模型验证的解析器，当前显示绑定姿势骨架。"; }
+        if key == "viewPoseBone" { return lang == 1 ? "Bone" : "骨骼"; }
+        if key == "viewPrev" { return lang == 1 ? "‹" : "‹"; }
+        if key == "viewNext" { return lang == 1 ? "›" : "›"; }
+        if key == "viewNone" { return lang == 1 ? "None" : "无"; }
+        if key == "viewTexMiss" { return lang == 1 ? "No texture found (flat-shaded)" : "未找到贴图（平面着色）"; }
+        if key == "viewFiles" { return lang == 1 ? "Needs .vvd + .vtx to preview" : "需配套 .vvd + .vtx 才能预览"; }
+        if key == "viewMetaTris" { return lang == 1 ? "tris" : "三角面"; }
+        if key == "viewMetaVerts" { return lang == 1 ? "verts" : "顶点"; }
+        if key == "viewMetaBones" { return lang == 1 ? "bones" : "骨骼"; }
+        if key == "viewMetaTex" { return lang == 1 ? "textures" : "贴图"; }
+        if key == "viewMenu" { return lang == 1 ? "View Menu" : "查看菜单"; }
+        if key == "viewUV" { return lang == 1 ? "UV Unwrap" : "UV 展开"; }
+        if key == "viewFlat" { return lang == 1 ? "Flat" : "平面着色"; }
+        if key == "viewFullbright" { return lang == 1 ? "Fullbright" : "全亮材质"; }
+        if key == "viewNormals" { return lang == 1 ? "Normals" : "法线"; }
+        if key == "viewBounds" { return lang == 1 ? "Bounds" : "包围盒"; }
+        if key == "viewSkin" { return lang == 1 ? "Skin" : "皮肤族"; }
+        if key == "viewSkinSingle" { return lang == 1 ? "Single skin (no families)" : "单一皮肤（无皮肤族）"; }
+        if key == "viewFov" { return lang == 1 ? "FOV" : "视角 FOV"; }
+        if key == "viewBg" { return lang == 1 ? "Background" : "背景色"; }
+        if key == "viewImport" { return lang == 1 ? "Import GMA/VPK" : "导入 GMA/VPK"; }
+        if key == "viewModelPick" { return lang == 1 ? "Pick model in archive…" : "选择档案内模型…"; }
+        return "";
+    }
+}
+
+export global Backend {
+    callback action(string);
+}
+
+// 主题配色：偏淡蓝渐变（由 dark 驱动）。hover 底色用淡蓝浅层，避免与背景相冲。
+export global Theme {
+    in-out property <bool> dark: false;
+    // 基础背景（淡蓝灰调）
+    in-out property <color> background: dark ? #14181e : #edf2f9;
+    in-out property <color> window-background: dark ? #1b2129 : #fbfdff;
+    in-out property <color> foreground: dark ? #e6eaf0 : #1c2733;
+    in-out property <color> foreground-on-accent: dark ? #0e1319 : #ffffff;
+    // 主色（淡蓝）
+    in-out property <color> accent: dark ? #4f9bf7 : #2f7cec;
+    // 主色渐变（按钮/高亮块）：hover 更亮
+    in-out property <brush> accent-gradient: dark
+        ? @linear-gradient(135deg, #5ea4f8 0%, #3b7cf0 100%)
+        : @linear-gradient(135deg, #5ba0f5 0%, #2f7cec 100%);
+    in-out property <brush> accent-gradient-hover: dark
+        ? @linear-gradient(135deg, #6cb0fa 0%, #4889f4 100%)
+        : @linear-gradient(135deg, #6fb0f8 0%, #4086ef 100%);
+    // hover 底色（淡蓝浅层，通用：按钮/图标/抽屉片 hover）
+    in-out property <color> hover: dark ? #26313f : #e1ebf9;
+    in-out property <color> button-background: dark ? #232b34 : #eef2f8;
+    in-out property <color> button-foreground: dark ? #e6eaf0 : #1c2733;
+    in-out property <color> input-background: dark ? #1d242d : #f2f6fc;
+    in-out property <color> input-foreground: dark ? #e6eaf0 : #1c2733;
+    in-out property <color> outline: dark ? #323b47 : #d6e1ee;
+    in-out property <color> neutral-foreground: dark ? #98a3b0 : #64748a;
+}

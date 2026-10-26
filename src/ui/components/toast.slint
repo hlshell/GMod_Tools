@@ -1,0 +1,66 @@
+// 全局轻提示（Toast）——右下角深色胶囊，宽度随文字自适应，淡入淡出 + 位移。
+// 用于非日志类的状态提示（校验结果 / 完成 / 错误），避免每次都要弹出日志抽屉。
+import { Theme } from "globals.slint";
+
+export component Toast inherits Rectangle {
+    in-out property <bool> show: false;
+    in property <string> text: "";
+    in property <string> kind: "info";   // info | success | error
+    in property <length> win-width: 0px;
+    in property <length> win-height: 0px;
+
+    // 类型主色：success/error 为语义色，info 走主题 accent（淡蓝，符合项目风格）
+    property <color> tint: root.kind == "success" ? #22c55e
+                         : root.kind == "error" ? #ef4444
+                         : Theme.accent;
+
+    // 宽度自适应（下限 160px，上限 380px，超长省略号截断）
+    width: min(380px, max(160px, txt.preferred-width + 46px));
+    height: 36px;
+
+    // 右下角（右缘留 20px，底缘留 24px）
+    x: root.win-width - root.width - 20px;
+    y: root.show ? (root.win-height - root.height - 24px) : (root.win-height - root.height + 10px);
+    opacity: root.show ? 1.0 : 0.0;
+    animate opacity { duration: 200ms; easing: ease-out; }
+    animate y { duration: 200ms; easing: ease-out; }
+
+    // 深色胶囊 + 阴影（浅色窗口上醒目，圆点用主题 accent）
+    border-radius: 18px;
+    background: #1f2430;
+    drop-shadow-blur: 16px; drop-shadow-color: rgba(0, 0, 0, 0.25); drop-shadow-offset-y: 4px;
+
+    // 类型圆点
+    Rectangle {
+        x: 16px;
+        y: (parent.height - 8px) / 2;
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: root.tint;
+    }
+
+    // 文本：容器宽度不足时省略号截断
+    txt := Text {
+        x: 32px;
+        y: 0px;
+        height: 100%;
+        width: min(self.preferred-width, parent.width - 46px);
+        text: root.text;
+        color: #f4f7fb;
+        font-size: 12.5px;
+        font-weight: 500;
+        vertical-alignment: center;
+        wrap: no-wrap;
+        overflow: elide;
+    }
+
+    // 拦截点击，防止穿透
+    TouchArea {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        clicked => { }
+    }
+}

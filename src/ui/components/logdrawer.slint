@@ -1,0 +1,143 @@
+// 日志抽屉：底部向上滑出，占内容区约 1/3，展示滚动日志
+// 收起态由 LogCollapsed（底部居中的小长块：向上图标 + 文字）承载，点击展开。
+// 展开态顶部为水平居中的收起条（向下图标 + 文字），点击收起。
+import { I18n, Theme } from "globals.slint";
+import { ScrollView } from "std-widgets.slint";
+
+// 底部居中的纯凸出块（chevron-up 图标，点击展开日志抽屉）—— 与展开态顶部凸出条风格统一
+export component LogCollapsed inherits Rectangle {
+    callback clicked();
+    width: 140px;
+    height: 36px;
+    border-radius: 18px;
+    background: ta.has-hover ? Theme.hover : Theme.window-background;
+    border-width: 1px;
+    border-color: ta.has-hover ? Theme.accent : Theme.outline;
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        height: 100%;
+        spacing: 6px;
+        cross-axis-alignment: center;
+        alignment: center;
+        padding-top: 6px;
+        padding-bottom: 12px;
+        Image {
+            source: @image-url("../assets/chevron-up.svg");
+            width: 16px;
+            height: 16px;
+            colorize: Theme.accent;
+        }
+    }
+}
+
+// 日志抽屉主体（展开时）
+export component LogDrawer inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <string> log-text;
+    in property <string> status;
+    in property <float> progress: 0.0;
+    in property <bool> progress-visible: false;
+    callback close-clicked();
+    callback open-clicked();
+
+    // 位置与高度由 main.slint 挂载处设置（open 贴底、收起时仅露出凸出条）
+    animate y { duration: 200ms; easing: ease-in-out; }
+
+    // 收起时本体透明，仅露出顶部凸出条作为展开入口
+    background: root.open ? Theme.window-background : transparent;
+    border-width: root.open ? 1px : 0px;
+    border-color: Theme.outline;
+    border-radius: 12px;
+
+    // 顶部凸起条（状态切换：收起=向上图标+文字点击展开；展开=向下图标+文字点击收起）
+    Rectangle {
+        y: -18px;
+        x: (parent.width - 160px) * 0.5;
+        width: 160px;
+        height: 36px;
+        border-radius: 18px;
+        background: tt.has-hover ? Theme.hover : Theme.window-background;
+        border-width: 1px;
+        border-color: tt.has-hover ? Theme.accent : Theme.outline;
+        tt := TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: pointer;
+            clicked => { if root.open { root.close-clicked(); } else { root.open-clicked(); } }
+        }
+        // 内容：收起态用 y 偏移上移到可见区，展开态垂直居中；图标与文字始终同一行、水平居中
+        HorizontalLayout {
+            y: root.open ? 0px : -9.5px;
+            width: 100%;
+            height: 100%;
+            spacing: 0px; // 图标与文字间隙（收起/展开一致，紧贴）
+            cross-axis-alignment: center; // 图标与文字垂直居中同一行
+            alignment: center; // 组合水平居中
+            // 收起：向上图标；展开：向下图标
+            Image {
+                visible: !root.open;
+                source: @image-url("../assets/chevron-up.svg");
+                width: 16px;
+                height: 16px;
+                colorize: Theme.accent;
+            }
+            Image {
+                visible: root.open;
+                source: @image-url("../assets/chevron-down.svg");
+                width: 16px;
+                height: 16px;
+                colorize: Theme.accent;
+            }
+            // 展开/收起文字统一
+            Text {
+                text: I18n.tr("logExpandHint", I18n.lang);
+                font-size: 12px;
+                font-weight: 600;
+                color: Theme.accent;
+            }
+        }
+    }
+
+    VerticalLayout {
+        padding-left: 14px;
+        padding-right: 12px;
+        padding-top: 24px; // 给顶部凸起条让位
+        padding-bottom: 10px;
+        spacing: 8px;
+
+        // 进度条（只显示进度，不显示状态文字）
+        Rectangle {
+            height: 4px;
+            border-radius: 2px;
+            background: Theme.outline;
+            Rectangle {
+                width: parent.width * Math.min(1.0, root.progress);
+                height: parent.height;
+                border-radius: 2px;
+                background: Theme.accent;
+                visible: root.progress-visible;
+            }
+        }
+
+        // 日志滚动区（靠左显示，只读可选中复制）
+        ScrollView {
+            vertical-stretch: 1;
+            TextInput {
+                text: root.log-text;
+                font-size: 12px;
+                color: Theme.foreground;
+                read-only: true;
+                wrap: word-wrap;
+                horizontal-alignment: left;
+                vertical-alignment: top;
+                width: parent.width;
+                height: parent.height;
+            }
+        }
+    }
+}

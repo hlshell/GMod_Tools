@@ -1,0 +1,1159 @@
+// 页面：其他工具（页内子 Tab：VPK / VTF / MDL / 模型查看）
+import { I18n, Backend, Theme } from "../components/globals.slint";
+import {
+    ActionButton, MiniButton, Card, CardHead, Field, FieldLabel, AreaInput, SelectField, LineInput,
+    SectionDivider, NoteText,
+} from "../components/widgets.slint";
+import { ScrollView, CheckBox, Slider } from "std-widgets.slint";
+
+// 子 Tab
+export component SubTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+    width: 88px;
+    height: 30px;
+    border-radius: 6px;
+    background: active ? Theme.accent : Theme.button-background;
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.label;
+        font-size: 13px;
+        color: active ? Theme.foreground-on-accent : Theme.foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+// 开关式小按钮
+export component ToggleBtn inherits Rectangle {
+    in property <string> label;
+    in property <bool> on: false;
+    callback toggled(bool);
+    width: 80px;
+    height: 30px;
+    border-radius: 6px;
+    background: on ? Theme.accent : Theme.button-background;
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => { root.toggled(!root.on); }
+    }
+    Text {
+        text: root.label;
+        font-size: 12px;
+        color: on ? Theme.foreground-on-accent : Theme.foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+// 身体组选择行：组名 + [−] 当前子模型 [+]
+export component BodyGroupRow inherits Rectangle {
+    in property <string> name;
+    in property <string> current;
+    callback prev();
+    callback next();
+    height: 28px;
+    HorizontalLayout {
+        spacing: 4px;
+        cross-axis-alignment: center;
+        width: parent.width;
+        height: parent.height;
+        Text {
+            text: root.name;
+            font-size: 12px;
+            color: Theme.foreground;
+            horizontal-stretch: 1;
+            overflow: TextOverflow.elide;
+            vertical-alignment: center;
+        }
+        MiniButton { text: "−"; width: 24px; height: 22px; clicked => { root.prev(); } }
+        Text {
+            text: root.current;
+            font-size: 11px;
+            color: Theme.accent;
+            width: 84px;
+            overflow: TextOverflow.elide;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        MiniButton { text: "＋"; width: 24px; height: 22px; clicked => { root.next(); } }
+    }
+}
+
+// 模型查看底部抽屉：点击凸出条弹出/收起，收起时仅露出头部条（文件名 + 元信息 + 开关）
+// 展开后含：身体组切换 / 姿势 / 序列 / 统计信息
+export component ViewDrawer inherits Rectangle {
+    in-out property <bool> open: false;
+    in property <length> container-height: 600px; // 所在容器（Card）高度，用于底部定位
+    in-out property <string> file-name;
+    in-out property <string> meta;
+    in-out property <string> stats;
+    in-out property <bool> bg-visible-0: false;
+    in-out property <string> bg-name-0;
+    in-out property <string> bg-current-0;
+    in-out property <bool> bg-visible-1: false;
+    in-out property <string> bg-name-1;
+    in-out property <string> bg-current-1;
+    in-out property <bool> bg-visible-2: false;
+    in-out property <string> bg-name-2;
+    in-out property <string> bg-current-2;
+    in-out property <bool> bg-visible-3: false;
+    in-out property <string> bg-name-3;
+    in-out property <string> bg-current-3;
+    in-out property <bool> bg-visible-4: false;
+    in-out property <string> bg-name-4;
+    in-out property <string> bg-current-4;
+    in-out property <bool> bg-visible-5: false;
+    in-out property <string> bg-name-5;
+    in-out property <string> bg-current-5;
+    in-out property <bool> pose-bone-has: false;
+    in-out property <int> pose-bone-index: 0;
+    in-out property <string> pose-bone-name;
+    in-out property <float> pose-rot-x: 0;
+    in-out property <float> pose-rot-y: 0;
+    in-out property <float> pose-rot-z: 0;
+    // 序列动画
+    in-out property <int> anim-seq: -1;
+    in-out property <int> anim-frames: 0;
+    in-out property <float> anim-frame: 0;
+    in-out property <bool> anim-playing: false;
+    in-out property <bool> seq-open: false;
+    in-out property <[string]> seq-names;
+    // 皮肤族（HLMV 皮肤切换）
+    in-out property <int> skin-family: 0;
+    in-out property <int> skin-count: 1;
+    in-out property <[string]> skin-names;
+    private property <bool> skin-open: false;
+    // 视角（FOV）
+    in-out property <int> view-fov: 55;
+    private property <float> fovf: root.view-fov;
+    // 导入的档案模型列表
+    in-out property <bool> model-open: false;
+    in-out property <[string]> model-names;
+    callback toggle();
+    callback prev(int);
+    callback next(int);
+    callback pose-prev();
+    callback pose-next();
+    callback pose-redraw();
+    callback seq-select(int);
+    callback anim-play();
+    callback anim-pause();
+    callback skin-select(int);
+    callback model-select(int);
+    callback bg-color(string);
+    callback export-smd();
+
+    y: root.open ? root.container-height - 226px : root.container-height - 34px;
+    height: 226px;
+    animate y { duration: 180ms; easing: ease-in-out; }
+    background: Theme.window-background;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: Theme.outline;
+
+    // 头部条：整条可点击切换展开/收起；始终显示文件名(居中)+元信息+开关
+    Rectangle {
+        y: 0px;
+        width: parent.width;
+        height: 34px;
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: pointer;
+            clicked => { root.toggle(); }
+        }
+        HorizontalLayout {
+            width: parent.width;
+            height: parent.height;
+            spacing: 8px;
+            padding-left: 12px;
+            padding-right: 8px;
+            cross-axis-alignment: center;
+            Text {
+                text: root.file-name;
+                font-size: 12px;
+                font-weight: 600;
+                color: Theme.foreground;
+                horizontal-stretch: 1;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.meta;
+                font-size: 11px;
+                color: Theme.neutral-foreground;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.open ? "▾ 收起" : "▴ 统计";
+                font-size: 11px;
+                font-weight: 600;
+                color: Theme.accent;
+                vertical-alignment: center;
+            }
+        }
+    }
+    // 分隔线（展开时）
+    Rectangle {
+        y: 34px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.outline;
+        visible: root.open;
+    }
+
+    // 内容区（仅展开显示）
+    if root.open : Rectangle {
+        y: 35px;
+        width: parent.width;
+        height: parent.height - 35px;
+        ScrollView {
+            width: parent.width;
+            height: parent.height;
+            VerticalLayout {
+                spacing: 6px;
+                padding: 8px;
+                // 身体组
+                Text { text: I18n.tr("viewBodygroups", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; }
+                if root.bg-visible-0 : BodyGroupRow { name: root.bg-name-0; current: root.bg-current-0; prev => { root.prev(0); } next => { root.next(0); } }
+                if root.bg-visible-1 : BodyGroupRow { name: root.bg-name-1; current: root.bg-current-1; prev => { root.prev(1); } next => { root.next(1); } }
+                if root.bg-visible-2 : BodyGroupRow { name: root.bg-name-2; current: root.bg-current-2; prev => { root.prev(2); } next => { root.next(2); } }
+                if root.bg-visible-3 : BodyGroupRow { name: root.bg-name-3; current: root.bg-current-3; prev => { root.prev(3); } next => { root.next(3); } }
+                if root.bg-visible-4 : BodyGroupRow { name: root.bg-name-4; current: root.bg-current-4; prev => { root.prev(4); } next => { root.next(4); } }
+                if root.bg-visible-5 : BodyGroupRow { name: root.bg-name-5; current: root.bg-current-5; prev => { root.prev(5); } next => { root.next(5); } }
+                SectionDivider {}
+                // 姿势
+                Text { text: I18n.tr("viewPose", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; }
+                if root.pose-bone-has : HorizontalLayout {
+                    spacing: 4px;
+                    MiniButton { text: "‹"; width: 26px; height: 22px; clicked => { root.pose-prev(); } }
+                    Text {
+                        text: root.pose-bone-name;
+                        font-size: 11px;
+                        color: Theme.accent;
+                        horizontal-stretch: 1;
+                        overflow: TextOverflow.elide;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    MiniButton { text: "›"; width: 26px; height: 22px; clicked => { root.pose-next(); } }
+                }
+                if root.pose-bone-has : VerticalLayout {
+                    spacing: 2px;
+                    Text { text: "X"; font-size: 11px; color: Theme.neutral-foreground; }
+                    Slider { value <=> root.pose-rot-x; minimum: -180; maximum: 180; changed => { root.pose-redraw(); } released => { root.pose-redraw(); } }
+                    Text { text: "Y"; font-size: 11px; color: Theme.neutral-foreground; }
+                    Slider { value <=> root.pose-rot-y; minimum: -180; maximum: 180; changed => { root.pose-redraw(); } released => { root.pose-redraw(); } }
+                    Text { text: "Z"; font-size: 11px; color: Theme.neutral-foreground; }
+                    Slider { value <=> root.pose-rot-z; minimum: -180; maximum: 180; changed => { root.pose-redraw(); } released => { root.pose-redraw(); } }
+                }
+                if !root.pose-bone-has : Text { text: I18n.tr("viewNone", I18n.lang); font-size: 11px; color: Theme.neutral-foreground; }
+                SectionDivider {}
+                // 序列
+                Text { text: I18n.tr("viewSequences", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; }
+                // 当前序列选择器
+                Rectangle {
+                    height: 26px;
+                    border-radius: 6px;
+                    background: Theme.button-background;
+                    border-width: 1px;
+                    border-color: Theme.outline;
+                    TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                        mouse-cursor: pointer;
+                        clicked => { root.seq-open = !root.seq-open; }
+                    }
+                    HorizontalLayout {
+                        cross-axis-alignment: center;
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Text {
+                            text: (root.anim-seq >= 0 && root.anim-seq < root.seq-names.length) ? root.seq-names[root.anim-seq] : I18n.tr("viewNone", I18n.lang);
+                            font-size: 12px;
+                            color: Theme.foreground;
+                            horizontal-stretch: 1;
+                            overflow: TextOverflow.elide;
+                        }
+                        Text { text: root.seq-open ? "▴" : "▾"; font-size: 11px; color: Theme.accent; }
+                    }
+                }
+                // 序列列表（展开）
+                if root.seq-open : VerticalLayout {
+                    spacing: 0px;
+                    for i in root.seq-names.length : Rectangle {
+                        height: 24px;
+                        border-radius: 4px;
+                        background: i == root.anim-seq ? (Theme.dark ? #2b3b50 : #d6e6ff) : (ta.has-hover ? Theme.hover : transparent);
+                        ta := TouchArea {
+                            width: parent.width;
+                            height: parent.height;
+                            mouse-cursor: pointer;
+                            clicked => { root.seq-select(i); root.seq-open = false; }
+                        }
+                        Text {
+                            text: root.seq-names[i];
+                            font-size: 12px;
+                            color: Theme.foreground;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+                    }
+                }
+                if root.seq-names.length == 0 : Text { text: I18n.tr("viewNone", I18n.lang); font-size: 11px; color: Theme.neutral-foreground; }
+                // 播放控制（选中序列时）
+                if root.anim-frames > 0 : HorizontalLayout {
+                    spacing: 6px;
+                    cross-axis-alignment: center;
+                    MiniButton {
+                        text: root.anim-playing ? "⏸" : "▶";
+                        width: 40px;
+                        height: 24px;
+                        clicked => {
+                            if root.anim-playing { root.anim-pause(); } else { root.anim-play(); }
+                        }
+                    }
+                    Text { text: root.anim-frame; font-size: 11px; color: Theme.accent; width: 28px; horizontal-alignment: right; }
+                    Text { text: "/"; font-size: 11px; color: Theme.neutral-foreground; }
+                    Text { text: root.anim-frames; font-size: 11px; color: Theme.neutral-foreground; width: 32px; }
+                    Slider {
+                        value <=> root.anim-frame;
+                        minimum: 0;
+                        maximum: root.anim-frames - 1;
+                        horizontal-stretch: 1;
+                        changed => { Backend.action("view_anim_seek"); }
+                    }
+                }
+                SectionDivider {}
+                // 皮肤族（HLMV 皮肤切换）
+                Text { text: I18n.tr("viewSkin", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; }
+                if root.skin-count > 1 : Rectangle {
+                    height: 26px;
+                    border-radius: 6px;
+                    background: Theme.button-background;
+                    border-width: 1px;
+                    border-color: Theme.outline;
+                    TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                        mouse-cursor: pointer;
+                        clicked => { root.skin-open = !root.skin-open; }
+                    }
+                    HorizontalLayout {
+                        cross-axis-alignment: center;
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Text {
+                            text: (root.skin-family >= 0 && root.skin-family < root.skin-names.length) ? root.skin-names[root.skin-family] : I18n.tr("viewNone", I18n.lang);
+                            font-size: 12px;
+                            color: Theme.foreground;
+                            horizontal-stretch: 1;
+                            overflow: TextOverflow.elide;
+                        }
+                        Text { text: root.skin-open ? "▴" : "▾"; font-size: 11px; color: Theme.accent; }
+                    }
+                }
+                if root.skin-count <= 1 : Text { text: I18n.tr("viewSkinSingle", I18n.lang); font-size: 11px; color: Theme.neutral-foreground; }
+                if root.skin-count > 1 && root.skin-open : VerticalLayout {
+                    spacing: 0px;
+                    for i in root.skin-names.length : Rectangle {
+                        height: 24px;
+                        border-radius: 4px;
+                        background: i == root.skin-family ? (Theme.dark ? #2b3b50 : #d6e6ff) : (tas.has-hover ? Theme.hover : transparent);
+                        tas := TouchArea {
+                            width: parent.width;
+                            height: parent.height;
+                            mouse-cursor: pointer;
+                            clicked => { root.skin-select(i); root.skin-open = false; }
+                        }
+                        Text {
+                            text: root.skin-names[i];
+                            font-size: 12px;
+                            color: Theme.foreground;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+                    }
+                }
+                SectionDivider {}
+                // 视角 FOV
+                Text { text: I18n.tr("viewFov", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; }
+                HorizontalLayout {
+                    spacing: 6px;
+                    cross-axis-alignment: center;
+                    Slider {
+                        value <=> root.fovf;
+                        minimum: 5;
+                        maximum: 120;
+                        horizontal-stretch: 1;
+                        changed => { Backend.action("view_fov:" + round(root.fovf)); }
+                    }
+                    Text { text: root.view-fov; font-size: 11px; color: Theme.accent; width: 34px; horizontal-alignment: right; }
+                }
+                // 背景色（HLMV Background Color 预设）
+                HorizontalLayout {
+                    spacing: 6px;
+                    cross-axis-alignment: center;
+                    Text { text: I18n.tr("viewBg", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; horizontal-stretch: 1; }
+                    sw0 := Rectangle { width: 26px; height: 22px; border-radius: 5px; border-width: 1px; border-color: Theme.outline; background: #10141a; TouchArea { width: parent.width; height: parent.height; mouse-cursor: pointer; clicked => { root.bg-color("0"); } } }
+                    sw1 := Rectangle { width: 26px; height: 22px; border-radius: 5px; border-width: 1px; border-color: Theme.outline; background: #000000; TouchArea { width: parent.width; height: parent.height; mouse-cursor: pointer; clicked => { root.bg-color("1"); } } }
+                    sw2 := Rectangle { width: 26px; height: 22px; border-radius: 5px; border-width: 1px; border-color: Theme.outline; background: #121a2c; TouchArea { width: parent.width; height: parent.height; mouse-cursor: pointer; clicked => { root.bg-color("2"); } } }
+                    sw3 := Rectangle { width: 26px; height: 22px; border-radius: 5px; border-width: 1px; border-color: Theme.outline; background: #ffffff; TouchArea { width: parent.width; height: parent.height; mouse-cursor: pointer; clicked => { root.bg-color("3"); } } }
+                }
+                SectionDivider {}
+                // 导入 GMA/VPK 预览模型
+                HorizontalLayout {
+                    spacing: 6px;
+                    cross-axis-alignment: center;
+                    Text { text: I18n.tr("viewImport", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; horizontal-stretch: 1; }
+                    MiniButton { text: I18n.tr("btnBrowse", I18n.lang); width: 60px; height: 22px; clicked => { Backend.action("view_import"); } }
+                    MiniButton { text: "SMD"; width: 52px; height: 22px; clicked => { root.export-smd(); } }
+                }
+                if root.model-names.length > 0 : Rectangle {
+                    height: 26px;
+                    border-radius: 6px;
+                    background: Theme.button-background;
+                    border-width: 1px;
+                    border-color: Theme.outline;
+                    TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                        mouse-cursor: pointer;
+                        clicked => { root.model-open = !root.model-open; }
+                    }
+                    HorizontalLayout {
+                        cross-axis-alignment: center;
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Text {
+                            text: I18n.tr("viewModelPick", I18n.lang);
+                            font-size: 12px;
+                            color: Theme.foreground;
+                            horizontal-stretch: 1;
+                            overflow: TextOverflow.elide;
+                        }
+                        Text { text: root.model-open ? "▴" : "▾"; font-size: 11px; color: Theme.accent; }
+                    }
+                }
+                if root.model-open : VerticalLayout {
+                    spacing: 0px;
+                    for i in root.model-names.length : Rectangle {
+                        height: 24px;
+                        border-radius: 4px;
+                        background: tam.has-hover ? Theme.hover : transparent;
+                        tam := TouchArea {
+                            width: parent.width;
+                            height: parent.height;
+                            mouse-cursor: pointer;
+                            clicked => { root.model-select(i); root.model-open = false; }
+                        }
+                        Text {
+                            text: root.model-names[i];
+                            font-size: 12px;
+                            color: Theme.foreground;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+                    }
+                }
+                SectionDivider {}
+                // 统计
+                Text { text: I18n.tr("viewStats", I18n.lang); font-size: 12px; font-weight: 600; color: Theme.foreground; }
+                Text {
+                    text: root.stats;
+                    font-size: 11px;
+                    color: Theme.neutral-foreground;
+                    font-family: "monospace";
+                    wrap: word-wrap;
+                    horizontal-alignment: left;
+                    vertical-alignment: top;
+                }
+            }
+        }
+    }
+}
+
+// 视角控制小按钮
+export component ViewBtn inherits Rectangle {
+    in property <string> label;
+    callback clicked();
+    width: 72px;
+    height: 26px;
+    border-radius: 6px;
+    background: Theme.button-background;
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.label;
+        font-size: 12px;
+        color: Theme.button-foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+// 下拉浮层紧凑多选行：左侧打勾图标 + 右侧文字，行高 20px；选中整行高亮
+export component ViewOptRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    callback toggled();
+    height: 20px;
+    border-radius: 4px;
+    background: root.checked
+        ? (Theme.dark ? #2b3b50 : #d6e6ff)
+        : (ta.has-hover ? Theme.hover : transparent);
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.toggled(); }
+    }
+    HorizontalLayout {
+        cross-axis-alignment: center;
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 6px;
+        Image {
+            source: @image-url("../assets/check.svg");
+            width: 12px;
+            height: 12px;
+            colorize: Theme.accent;
+            visible: root.checked;
+        }
+        Text {
+            text: root.label;
+            font-size: 12px;
+            color: Theme.foreground;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+// 模型查看显示选项：下拉按钮 + 自定义多选浮层（线框 / 着色 / 骨骼 / 材质）
+// 用普通浮层而非 PopupWindow：内部勾选不收起，点按钮切换 / 点外部收起
+export component ViewOptions inherits Rectangle {
+    in-out property <bool> wire: false;
+    in-out property <bool> shade: true;
+    in-out property <bool> bone: false;
+    in-out property <bool> texture: true;
+    in-out property <bool> uv: false;
+    in-out property <bool> flat: false;
+    in-out property <bool> fullbright: false;
+    in-out property <bool> normal: false;
+    in-out property <bool> bounds: false;
+    in-out property <bool> open: false;
+    in-out property <bool> pending: false;
+    in-out property <length> page-height: 700px; // 所在页面可用高度，用于浮层越界自动上弹
+    in-out property <int> view-opt-rows: 9; // 选项行数，驱动浮层高度（新增选项时同步调整）
+    callback changed();
+    callback open-changed(bool);
+    width: 124px;
+    height: 30px;
+    border-radius: 6px;
+    background: Theme.button-background;
+    border-width: 1px;
+    border-color: Theme.outline;
+    HorizontalLayout {
+        cross-axis-alignment: center;
+        padding-left: 10px;
+        padding-right: 8px;
+        spacing: 6px;
+        Text {
+            text: I18n.tr("viewOptions", I18n.lang);
+            font-size: 12px;
+            color: Theme.button-foreground;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Image {
+            source: @image-url("../assets/chevron-down.svg");
+            width: 12px;
+            height: 12px;
+            colorize: Theme.accent;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.open = !root.open; root.open-changed(root.open); }
+    }
+    // 下拉浮层（Rectangle 高度显式绑定 VerticalLayout 高度，背景随选项撑满，避免塌缩）
+    if root.open : Rectangle {
+        x: 0px; // 左缘对齐按钮左缘
+        y: root.height; // 紧贴按钮底部
+        width: root.width; // 宽度与按钮一致（完全对齐）
+        height: root.view-opt-rows * 20px + 4px; // 行数 × 行高 + padding，新增选项改 view-opt-rows 即可
+        background: Theme.window-background;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.outline;
+        VerticalLayout {
+            padding: 2px;
+            spacing: 0px;
+            ViewOptRow { label: I18n.tr("btnWireframe", I18n.lang); checked: root.wire; toggled => { root.wire = !root.wire; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("btnShaded", I18n.lang); checked: root.shade; toggled => { root.shade = !root.shade; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("btnTexture", I18n.lang); checked: root.texture; toggled => { root.texture = !root.texture; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("viewFlat", I18n.lang); checked: root.flat; toggled => { root.flat = !root.flat; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("viewFullbright", I18n.lang); checked: root.fullbright; toggled => { root.fullbright = !root.fullbright; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("viewUV", I18n.lang); checked: root.uv; toggled => { root.uv = !root.uv; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("btnBones", I18n.lang); checked: root.bone; toggled => { root.bone = !root.bone; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("viewNormals", I18n.lang); checked: root.normal; toggled => { root.normal = !root.normal; root.pending = true; } }
+            ViewOptRow { label: I18n.tr("viewBounds", I18n.lang); checked: root.bounds; toggled => { root.bounds = !root.bounds; root.pending = true; } }
+        }
+    }
+    Timer {
+        interval: 100ms;
+        running: root.pending;
+        triggered => { root.pending = false; root.changed(); }
+    }
+}
+
+export component ToolsPage inherits Rectangle {
+    in-out property <int> sub: 0; // 0=vpk 1=vtf 2=mdl 3=view
+    in-out property <bool> view-options-open: false; // 模型查看下拉浮层开关
+    in-out property <int> view-opt-rows: 9; // 模型查看显示选项行数（新增选项时调整，驱动浮层高度）
+    // 模型查看
+    in-out property <bool> view-uv: false;   // UV 展开视图
+    in-out property <int> anim-seq: -1;
+    in-out property <int> anim-frames: 0;
+    in-out property <float> anim-frame: 0;
+    in-out property <bool> anim-playing: false;
+    in-out property <bool> seq-open: false;
+    in-out property <[string]> seq-names;
+    // VPK
+    in-out property <string> vpk-src;
+    in-out property <string> vpk-out;
+    in-out property <string> vpk-file;
+    in-out property <string> vpk-dir;
+    // VTF
+    in-out property <string> vtf-file;
+    in-out property <string> vtf-out;
+    in-out property <string> png-file;
+    in-out property <string> vtf-enc-out;
+    in-out property <int> vtf-enc-format: 0; // dxt5
+    in-out property <bool> vtf-preview-visible: false;
+    in-out property <image> vtf-preview-image;
+    in-out property <bool> png-preview-visible: false;
+    in-out property <image> png-preview-image;
+    in-out property <bool> vpk-tree-visible: false;
+    in-out property <string> vpk-tree;
+    in-out property <bool> mdl-tree-visible: false;
+    in-out property <string> mdl-tree;
+    // MDL
+    in-out property <string> mdl-file;
+    in-out property <string> mdl-out-dir;
+    in-out property <string> qc-file;
+    in-out property <string> mdl-pack-out;
+    in-out property <string> studiomdl;
+    // 模型查看
+    in-out property <string> view-mdl-file;
+    in-out property <string> view-mdl-name;
+    in-out property <image> view-preview-image;
+    in-out property <string> view-meta;
+    in-out property <string> view-stats;
+    in-out property <bool> view-wire: false;
+    in-out property <bool> view-shade: true;
+    in-out property <bool> view-bone: false;
+    in-out property <bool> view-texture: true;
+    in-out property <bool> view-hitbox: false;
+    in-out property <bool> view-attach: false;
+    in-out property <bool> view-grid: true;
+    in-out property <bool> view-axes: true;
+    in-out property <bool> view-ortho: false;
+    in-out property <bool> view-flat: false;
+    in-out property <bool> view-fullbright: false;
+    in-out property <bool> view-normal: false;
+    in-out property <bool> view-bounds: false;
+    in-out property <int> view-skin-family: 0;
+    in-out property <int> view-skin-count: 1;
+    in-out property <[string]> view-skin-names;
+    in-out property <int> view-fov: 55;
+    in-out property <bool> view-model-open: false;
+    in-out property <[string]> view-model-names;
+    // 身体组选择槽（最多 6 组）
+    in-out property <bool> bg-visible-0: false;
+    in-out property <string> bg-name-0;
+    in-out property <string> bg-current-0;
+    in-out property <bool> bg-visible-1: false;
+    in-out property <string> bg-name-1;
+    in-out property <string> bg-current-1;
+    in-out property <bool> bg-visible-2: false;
+    in-out property <string> bg-name-2;
+    in-out property <string> bg-current-2;
+    in-out property <bool> bg-visible-3: false;
+    in-out property <string> bg-name-3;
+    in-out property <string> bg-current-3;
+    in-out property <bool> bg-visible-4: false;
+    in-out property <string> bg-name-4;
+    in-out property <string> bg-current-4;
+    in-out property <bool> bg-visible-5: false;
+    in-out property <string> bg-name-5;
+    in-out property <string> bg-current-5;
+    // 姿势编辑
+    in-out property <bool> pose-bone-has: false;
+    in-out property <int> pose-bone-index: 0;
+    in-out property <string> pose-bone-name;
+    in-out property <float> pose-rot-x: 0;
+    in-out property <float> pose-rot-y: 0;
+    in-out property <float> pose-rot-z: 0;
+    // 预览画布拖拽 / 右键菜单内部状态
+    private property <bool> drag-active: false;
+    private property <length> drag-last-x: 0px;
+    private property <length> drag-last-y: 0px;
+    private property <bool> ctx-open: false;
+    private property <length> ctx-x: 0px;
+    private property <length> ctx-y: 0px;
+    private property <bool> view-drawer-open: false;
+
+    callback view-reset();
+    callback view-drag-move(float, float);
+
+    callback vpk-pack();
+    callback vpk-list();
+    callback vpk-unpack();
+    callback vtf-info();
+    callback vtf-convert();
+    callback vtf-encode();
+    callback vtf-preview();
+    callback png-preview();
+    callback mdl-info();
+    callback mdl-decompile();
+    callback mdl-pack();
+    callback detect-smdl();
+    callback view-load();
+    callback view-rot(string);
+    callback view-zoom(string);
+    callback sub-changed(int);
+    callback view-import();
+    callback skin-select(int);
+    callback model-select(int);
+    callback bg-color(string);
+    callback export-smd();
+
+    // 模型查看下拉浮层的外部点击关闭层（仅当下拉展开时显示，置于 z 底层）
+    if root.view-options-open : Rectangle {
+        x: 0px; y: 0px; width: 100%; height: 100%;
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => { root.view-options-open = false; }
+        }
+    }
+
+    // 内部布局：显式填满组件（Rectangle 根 + height 100%，不依赖继承布局的 stretch 传递）
+    // 顶部 padding 0 使子 Tab 紧贴标题栏（主窗内容区顶部 padding 2px 决定 2px 间隔），子 Tab 与内容区间隔约 2px
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        spacing: 2px;
+        padding: 12px;
+        padding-top: 0px; // 子 Tab 紧贴标题栏（主窗内容区顶部 2px 决定 2px 间隔）
+
+    // 子 Tab 栏
+    HorizontalLayout {
+        spacing: 6px;
+        SubTab { label: I18n.tr("subVpk", I18n.lang); active: root.sub == 0; clicked => { root.sub = 0; root.sub-changed(0); } }
+        SubTab { label: I18n.tr("subVtf", I18n.lang); active: root.sub == 1; clicked => { root.sub = 1; root.sub-changed(1); } }
+        SubTab { label: I18n.tr("subMdl", I18n.lang); active: root.sub == 2; clicked => { root.sub = 2; root.sub-changed(2); } }
+        SubTab { label: I18n.tr("subView", I18n.lang); active: root.sub == 3; clicked => { root.sub = 3; root.sub-changed(3); } }
+    }
+
+    // ---------------- VPK ----------------
+    if root.sub == 0 : VerticalLayout {
+        spacing: 12px;
+        vertical-stretch: 1;
+        HorizontalLayout {
+            spacing: 12px;
+            vertical-stretch: 1;
+            Card {
+                width: 50%;
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    vertical-stretch: 1;
+                    CardHead {
+                        title: I18n.tr("vpkPack", I18n.lang);
+                        ActionButton { text: I18n.tr("vpkPackBtn", I18n.lang); primary: true; width: 130px; clicked => { root.vpk-pack(); } }
+                    }
+                    Field { label-key: "lblVpkSrc"; placeholder-key: "phVpkSrc"; field-id: "vpk_src"; value <=> root.vpk-src; }
+                    Field { label-key: "lblVpkOut"; placeholder-key: "phVpkOut"; field-id: "vpk_out"; value <=> root.vpk-out; }
+                    // 占位：把表单顶到卡片上部，下方由卡背景填充，视觉上卡片撑满
+                    Rectangle { vertical-stretch: 1; }
+                }
+            }
+            Card {
+                width: 50%;
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    vertical-stretch: 1;
+                    CardHead {
+                        title: I18n.tr("vpkUnpack", I18n.lang);
+                        HorizontalLayout {
+                            spacing: 8px;
+                            ActionButton { text: I18n.tr("vpkListBtn", I18n.lang); ghost: true; width: 110px; clicked => { root.vpk-list(); } }
+                            ActionButton { text: I18n.tr("vpkUnpackBtn", I18n.lang); width: 110px; clicked => { root.vpk-unpack(); } }
+                        }
+                    }
+                    Field { label-key: "lblVpkFile"; placeholder-key: "phVpkFile"; field-id: "vpk_file"; value <=> root.vpk-file; }
+                    Field { label-key: "lblVpkOutdir"; placeholder-key: "phVpkOutdir"; field-id: "vpk_dir"; value <=> root.vpk-dir; }
+                    // 占位：把表单顶到卡片上部，下方由卡背景填充，视觉上卡片撑满
+                    Rectangle { vertical-stretch: 1; }
+                }
+            }
+        }
+        if root.vpk-tree-visible : Card {
+            height: 280px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 8px;
+                CardHead { title: I18n.tr("vpkTreeTitle", I18n.lang); }
+                ScrollView {
+                    vertical-stretch: 1;
+                    Text {
+                        text: root.vpk-tree;
+                        font-size: 12px;
+                        color: Theme.neutral-foreground;
+                        font-family: "monospace";
+                        width: max(parent.width, self.preferred-width);
+                        height: max(parent.height, self.preferred-height);
+                        horizontal-alignment: left;
+                        vertical-alignment: top;
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------- VTF ----------------
+    if root.sub == 1 : HorizontalLayout {
+        spacing: 12px;
+        vertical-stretch: 1;
+        Card {
+            width: 50%;
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                vertical-stretch: 1;
+                CardHead {
+                    title: I18n.tr("vtfConv", I18n.lang);
+                    ActionButton { text: I18n.tr("btnVtfConv", I18n.lang); width: 120px; clicked => { root.vtf-convert(); } }
+                }
+                Field {
+                    label-key: "lblVtf"; placeholder-key: "phVtf"; field-id: "vtf_file"; value <=> root.vtf-file;
+                    value-changed => { root.vtf-preview(); }
+                }
+                Field { label-key: "lblVtfOut"; placeholder-key: "phVtfOut"; field-id: "vtf_out"; value <=> root.vtf-out; }
+                if root.vtf-preview-visible : Image {
+                    source: root.vtf-preview-image;
+                    height: 160px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                }
+                // 占位：把表单顶到卡片上部，下方由卡背景填充
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        Card {
+            width: 50%;
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                vertical-stretch: 1;
+                CardHead {
+                    title: I18n.tr("vtfEncode", I18n.lang);
+                    ActionButton { text: I18n.tr("btnVtfEncode", I18n.lang); width: 110px; clicked => { root.vtf-encode(); } }
+                }
+                Field {
+                    label-key: "lblPng"; placeholder-key: "phPng"; field-id: "png_file"; value <=> root.png-file;
+                    value-changed => { root.png-preview(); }
+                }
+                Field { label-key: "lblVtfOut2"; placeholder-key: "phVtfOut2"; field-id: "vtf_enc_out"; value <=> root.vtf-enc-out; }
+                VerticalLayout {
+                    spacing: 4px;
+                    FieldLabel { key: "lblVtfFormat"; }
+                    SelectField {
+                        index <=> root.vtf-enc-format;
+                        model: ["DXT5 (推荐，带透明)", "DXT1 (无透明)", "RGBA8888 (无压缩)", "RGB888 (无压缩)"];
+                    }
+                }
+                NoteText { key: "vtfEncodeNote"; }
+                if root.png-preview-visible : Image {
+                    source: root.png-preview-image;
+                    height: 160px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                }
+                // 占位：把表单顶到卡片上部，下方由卡背景填充
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+    }
+
+    // ---------------- MDL ----------------
+    if root.sub == 2 : VerticalLayout {
+        spacing: 12px;
+        vertical-stretch: 1;
+        HorizontalLayout {
+            spacing: 12px;
+            vertical-stretch: 1;
+            Card {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    CardHead {
+                        title: I18n.tr("mdlPack", I18n.lang);
+                        HorizontalLayout {
+                            spacing: 8px;
+                            ActionButton { text: I18n.tr("mdlPackBtn", I18n.lang); primary: true; width: 130px; clicked => { root.mdl-pack(); } }
+                        }
+                    }
+                    Field { label-key: "lblQc"; placeholder-key: "phQc"; field-id: "qc_file"; value <=> root.qc-file; }
+                    Field { label-key: "lblMdlPackOut"; placeholder-key: "phMdlPackOut"; field-id: "mdl_pack_out"; value <=> root.mdl-pack-out; }
+                    NoteText { key: "mdlPackNote"; }
+                }
+            }
+            Card {
+                horizontal-stretch: 2;
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    CardHead {
+                        title: I18n.tr("mdlUnpack", I18n.lang);
+                        HorizontalLayout {
+                            spacing: 8px;
+                            ActionButton { text: I18n.tr("btnMdlInfo", I18n.lang); ghost: true; width: 110px; clicked => { root.mdl-info(); } }
+                            ActionButton { text: I18n.tr("mdlUnpackBtn", I18n.lang); width: 120px; clicked => { root.mdl-decompile(); } }
+                        }
+                    }
+                    Field { label-key: "lblMdl"; placeholder-key: "phMdl"; field-id: "mdl_file"; value <=> root.mdl-file; }
+                    Field { label-key: "lblUout"; placeholder-key: "phUout"; field-id: "mdl_out_dir"; value <=> root.mdl-out-dir; }
+                    NoteText { key: "mdlNote"; }
+                }
+            }
+        }
+        if root.mdl-tree-visible : Card {
+            height: 280px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 8px;
+                CardHead { title: I18n.tr("mdlTreeTitle", I18n.lang); }
+                ScrollView {
+                    vertical-stretch: 1;
+                    Text {
+                        text: root.mdl-tree;
+                        font-size: 12px;
+                        color: Theme.neutral-foreground;
+                        font-family: "monospace";
+                        width: max(parent.width, self.preferred-width);
+                        height: max(parent.height, self.preferred-height);
+                        horizontal-alignment: left;
+                        vertical-alignment: top;
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------- 模型查看 ----------------
+    if root.sub == 3 : Card {
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            CardHead {
+                title: I18n.tr("viewTitle", I18n.lang);
+                // 显示选项下拉
+                ViewOptions {
+                    wire <=> root.view-wire;
+                    shade <=> root.view-shade;
+                    bone <=> root.view-bone;
+                    texture <=> root.view-texture;
+                    uv <=> root.view-uv;
+                    flat <=> root.view-flat;
+                    fullbright <=> root.view-fullbright;
+                    normal <=> root.view-normal;
+                    bounds <=> root.view-bounds;
+                    open <=> root.view-options-open;
+                    page-height: root.height;
+                    view-opt-rows: root.view-opt-rows;
+                    changed => { Backend.action("view_redraw"); }
+                }
+                LineInput {
+                    width: 170px;
+                    read-only: true;
+                    placeholder-key: "phMdl";
+                    value <=> root.view-mdl-file;
+                    changed => { root.view-load(); }
+                }
+                MiniButton { text: I18n.tr("btnBrowse", I18n.lang); width: 62px; clicked => { Backend.action("browse:view_mdl_file"); } }
+                MiniButton { text: I18n.tr("viewImport", I18n.lang); width: 104px; clicked => { Backend.action("view_import"); } }
+                MiniButton { text: I18n.tr("viewReset", I18n.lang); width: 68px; clicked => { Backend.action("view_reset"); } }
+            }
+
+            // 主体：预览画布（占满；z:-1 让显示选项下拉绘制其上，避免被画布遮挡）
+            // 左键拖拽旋转/平移 + 右键菜单
+            Rectangle {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                z: -1;
+                clip: true;
+                border-radius: 8px;
+                background: Theme.background;
+                border-width: 1px;
+                border-color: Theme.outline;
+                TouchArea {
+                    x: 0px; y: 0px; width: parent.width; height: parent.height;
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.down {
+                            if e.button == PointerEventButton.left {
+                                root.drag-active = true;
+                                root.drag-last-x = self.mouse-x;
+                                root.drag-last-y = self.mouse-y;
+                                root.ctx-open = false;
+                            } else if e.button == PointerEventButton.right {
+                                root.ctx-x = self.mouse-x;
+                                root.ctx-y = self.mouse-y;
+                                root.ctx-open = true;
+                            }
+                        } else if e.kind == PointerEventKind.up {
+                            root.drag-active = false;
+                        }
+                    }
+                    moved => {
+                        if root.drag-active {
+                            root.view-drag-move((self.mouse-x - root.drag-last-x) / 1px, (self.mouse-y - root.drag-last-y) / 1px);
+                            root.drag-last-x = self.mouse-x;
+                            root.drag-last-y = self.mouse-y;
+                        }
+                    }
+                }
+                Image {
+                    source: root.view-preview-image;
+                    width: parent.width;
+                    height: parent.height;
+                    image-fit: cover;
+                }
+                // 右键菜单
+                if root.ctx-open : Rectangle {
+                    x: min(root.ctx-x, parent.width - 150px);
+                    y: min(root.ctx-y, parent.height - 320px);
+                    width: 150px;
+                    background: Theme.window-background;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: Theme.outline;
+                    VerticalLayout {
+                        padding: 2px;
+                        spacing: 0px;
+                        ViewOptRow { label: I18n.tr("viewReset", I18n.lang); checked: false; toggled => { Backend.action("view_reset"); root.ctx-open = false; } }
+                        ViewOptRow { label: root.view-ortho ? I18n.tr("viewPersp", I18n.lang) : I18n.tr("viewOrtho", I18n.lang); checked: root.view-ortho; toggled => { Backend.action("view_toggle:ortho"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("btnWireframe", I18n.lang); checked: root.view-wire; toggled => { Backend.action("view_toggle:wire"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("btnShaded", I18n.lang); checked: root.view-shade; toggled => { Backend.action("view_toggle:shade"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("btnTexture", I18n.lang); checked: root.view-texture; toggled => { Backend.action("view_toggle:texture"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("btnBones", I18n.lang); checked: root.view-bone; toggled => { Backend.action("view_toggle:bone"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("viewHitbox", I18n.lang); checked: root.view-hitbox; toggled => { Backend.action("view_toggle:hitbox"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("viewAttach", I18n.lang); checked: root.view-attach; toggled => { Backend.action("view_toggle:attach"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("viewGrid", I18n.lang); checked: root.view-grid; toggled => { Backend.action("view_toggle:grid"); root.ctx-open = false; } }
+                        ViewOptRow { label: I18n.tr("viewAxes", I18n.lang); checked: root.view-axes; toggled => { Backend.action("view_toggle:axes"); root.ctx-open = false; } }
+                    }
+                }
+            }
+        }
+        // 底部抽屉覆盖层（点击凸出条弹出/收起；Card 内独立层，z 高于画布，不占布局高度）
+        ViewDrawer {
+            x: 14px;
+            width: parent.width - 28px;
+            container-height: parent.height;
+            z: 20;
+            open: root.view-drawer-open;
+            file-name: root.view-mdl-name;
+            meta: root.view-meta;
+            stats: root.view-stats;
+            bg-visible-0 <=> root.bg-visible-0;
+            bg-name-0 <=> root.bg-name-0;
+            bg-current-0 <=> root.bg-current-0;
+            bg-visible-1 <=> root.bg-visible-1;
+            bg-name-1 <=> root.bg-name-1;
+            bg-current-1 <=> root.bg-current-1;
+            bg-visible-2 <=> root.bg-visible-2;
+            bg-name-2 <=> root.bg-name-2;
+            bg-current-2 <=> root.bg-current-2;
+            bg-visible-3 <=> root.bg-visible-3;
+            bg-name-3 <=> root.bg-name-3;
+            bg-current-3 <=> root.bg-current-3;
+            bg-visible-4 <=> root.bg-visible-4;
+            bg-name-4 <=> root.bg-name-4;
+            bg-current-4 <=> root.bg-current-4;
+            bg-visible-5 <=> root.bg-visible-5;
+            bg-name-5 <=> root.bg-name-5;
+            bg-current-5 <=> root.bg-current-5;
+            pose-bone-has <=> root.pose-bone-has;
+            pose-bone-index <=> root.pose-bone-index;
+            pose-bone-name <=> root.pose-bone-name;
+            pose-rot-x <=> root.pose-rot-x;
+            pose-rot-y <=> root.pose-rot-y;
+            pose-rot-z <=> root.pose-rot-z;
+            anim-seq <=> root.anim-seq;
+            anim-frames <=> root.anim-frames;
+            anim-frame <=> root.anim-frame;
+            anim-playing <=> root.anim-playing;
+            seq-open <=> root.seq-open;
+            seq-names <=> root.seq-names;
+            skin-family <=> root.view-skin-family;
+            skin-count <=> root.view-skin-count;
+            skin-names <=> root.view-skin-names;
+            view-fov <=> root.view-fov;
+            model-open <=> root.view-model-open;
+            model-names <=> root.view-model-names;
+            toggle => { root.view-drawer-open = !root.view-drawer-open; }
+            prev(i) => { Backend.action("view_bodygroup:" + i + ":-1"); }
+            next(i) => { Backend.action("view_bodygroup:" + i + ":1"); }
+            pose-prev => { Backend.action("pose_bone_prev"); }
+            pose-next => { Backend.action("pose_bone_next"); }
+            pose-redraw => { Backend.action("view_pose_redraw"); }
+            seq-select(i) => { Backend.action("view_seq_select:" + i); }
+            anim-play => { Backend.action("view_anim_play"); }
+            anim-pause => { Backend.action("view_anim_pause"); }
+            skin-select(i) => { Backend.action("view_skin:" + i); }
+            model-select(i) => { Backend.action("view_model_select:" + i); }
+            bg-color(c) => { Backend.action("view_bg:" + c); }
+            export-smd => { Backend.action("view_export_smd"); }
+        }
+    }
+    // 序列动画播放时钟（UI 侧驱动，播放时周期性推进帧）
+    Timer {
+        interval: 40ms;
+        running: root.anim-playing && root.anim-frames > 1;
+        triggered => { Backend.action("view_anim_tick"); }
+    }
+    }
+}

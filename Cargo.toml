@@ -1,0 +1,39 @@
+[package]
+name = "gma-slint"
+version = "0.5.6"
+description = "GMod 工具箱（Slint 版）：GMA 打包 / 创意工坊上传 / 解包工具"
+edition = "2021"
+
+[build-dependencies]
+slint-build = "1.18"
+
+[dependencies]
+slint = { version = "1.18", default-features = false, features = [
+    "std",
+    "compat-1-18",
+    "backend-winit",
+    "renderer-femtovg",
+    "unstable-winit-030",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rfd = "0.17"
+crc32fast = "1"
+valve_pak = "0.1"
+vtf = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
+base64 = "0.22"
+winit = "0.30"
+raw-window-handle = "0.6"
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
+    "Win32_Graphics_Gdi",
+] }
+chrono = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
